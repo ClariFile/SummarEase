@@ -1,0 +1,1 @@
+"""SummarEase: offline document summarizer."""

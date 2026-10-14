@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <title>SummarEase</title>
+  <clipPath id="se-bk"><rect x="0" y="0" width="512" height="166"/></clipPath><path d="M56,130 Q56,100 86,100 H198 Q212,100 222,110 L238,136 Q248,146 262,146 H426 Q456,146 456,176 V398 Q456,428 426,428 H86 Q56,428 56,398 Z" fill="#6C47FF" clip-path="url(#se-bk)"/>
+  <rect x="56" y="178" width="400" height="250" rx="30" fill="#6C47FF"/>
+  <path d="M188.0,202.0 H302.0 L340.0,240.0 V394.0 Q340.0,410.0 324.0,410.0 H188.0 Q172.0,410.0 172.0,394.0 V218.0 Q172.0,202.0 188.0,202.0 Z" fill="#FFFFFF"/>
+  <rect x="203.9" y="271.0" width="104.2" height="20" rx="10.0" fill="#6C47FF"/>
+  <rect x="203.9" y="308.5" width="104.2" height="20" rx="10.0" fill="#6C47FF"/>
+  <rect x="203.9" y="345.9" width="63.8" height="20" rx="10.0" fill="#6C47FF"/>
+  <path d="M302.0,200.0 V240.0 H342.0" fill="none" stroke="#6C47FF" stroke-width="9" stroke-linejoin="round" stroke-linecap="butt"/>
+</svg>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <title>SummarEase (small sizes)</title>
+  <path d="M56,130 Q56,100 86,100 H198 Q212,100 222,110 L238,136 Q248,146 262,146 H426 Q456,146 456,176 V398 Q456,428 426,428 H86 Q56,428 56,398 Z" fill="#6C47FF"/>
+  <rect x="56" y="178" width="400" height="250" rx="30" fill="#6C47FF"/>
+  <path d="M174.0,190.0 H302.0 L354.0,242.0 V406.0 Q354.0,422.0 338.0,422.0 H174.0 Q158.0,422.0 158.0,406.0 V206.0 Q158.0,190.0 174.0,190.0 Z" fill="#FFFFFF"/>
+  <rect x="197.2" y="277.1" width="117.6" height="30" rx="15.0" fill="#6C47FF"/>
+  <rect x="197.2" y="337.4" width="78.4" height="30" rx="15.0" fill="#6C47FF"/>
+</svg>

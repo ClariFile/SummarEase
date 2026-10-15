@@ -20,7 +20,7 @@ Every number reported comes from the one evaluation command in `EVALUATION.md`.
 
 ## M1 Read files and show the readable text view
 
-- **First task: the reader check.** A test that fails if any file in `summarease/reader/` differs from ClassiFile's
+- **First task: the reader check** (done early, in M0, on 2026-10-15: `tests/test_reader_copy.py`). A test that fails if any file in `summarease/reader/` differs from ClassiFile's
   tag `reader-v6`: it hashes each file (SHA-256, with Windows line endings read as plain line breaks) and compares
   the result with the table in `summarease/reader/SOURCE.md`. A new or missing file fails it too.
 - Open a document (drag-and-drop or a file chooser), or paste text.

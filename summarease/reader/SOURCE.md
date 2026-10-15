@@ -25,6 +25,6 @@ before hashing). Checked on 2026-10-15: the copy here matches all six.
 | `ooxml.py` | `1f145d22a81e5a9d1d8ecca64ef2b24cd5b74faa4879229d1f5066e644027fc1` |
 | `pdf.py` | `b18be433f20d29ddeb2d310ac0d5ee9fcf3b5ea3672b92434ef8bfdf2494bf54` |
 
-**Task for SummarEase's agent (M1, first task):** a test that fails if the files in `summarease/reader/` differ
+**The reader check** (`tests/test_reader_copy.py`, done 2026-10-15): a test that fails if the files in `summarease/reader/` differ
 from this table: the same six files (no more, no fewer), each with the hash above. `SOURCE.md` itself is not
 hashed.

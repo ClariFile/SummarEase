@@ -10,9 +10,11 @@
   tag `reader-v6`, with the hash of each file in `summarease/reader/SOURCE.md`; the copy matches all six.
 - The pre-push privacy audit (`tools/audit_terms.py`) with a local, untracked term list.
 - An empty PySide6 window with the SummarEase icon.
-- 8 tests: the reader reads a PDF, a PPTX, a DOCX and an ODT made for the tests without changing them; OCR reads
+- 10 tests: the reader reads a PDF, a PPTX, a DOCX and an ODT made for the tests without changing them; OCR reads
   text that is only in a picture; the reader imports nothing from the rest of SummarEase; the window opens with
-  the network blocked; the audit matches plain and pattern terms.
+  the network blocked; the audit matches plain and pattern terms; the reader check (added 2026-10-15, moved
+  forward from M1 at the owner's request): `tests/test_reader_copy.py` fails if any file in `summarease/reader/`
+  is added, missing or differs from the hashes in `SOURCE.md`.
 
 ## Planning, 2026-10-15 (documents only; no code changed)
 
@@ -29,13 +31,12 @@
 
 ## Open
 
-- **The reader check** (M1, first task): a test comparing the copied files with the hashes in `SOURCE.md`.
 - **What Export exports** (record P6): the owner's decision, below.
 - **The owner's reference key points** for about 10 development documents, written before any method is tuned.
 - **SummarEase's held-out set** (`data\final-check`), set aside by the owner before M2's tuning starts.
 - ClassiFile's `data\validation` and `data\final-eval` stay unread until ClassiFile's CP5 is done.
-- The repository has one local commit for M0 and one for this planning; nothing is pushed yet (GitHub's `main`
-  does not exist yet).
+- The repository's commits (M0, planning, reader check) are pushed to GitHub's `main` after the privacy audit
+  (0 hits).
 
 ## Decision for the owner: what Export exports (P6)
 

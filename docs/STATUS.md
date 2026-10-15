@@ -66,5 +66,5 @@ already installed, writes PDF pages with real text.
 
 ## Next milestone
 
-**M1 Read files and show the readable text view** (`MILESTONES.md`), starting with the reader check. Only on the
+**M1 Read files and show the readable text view** (`MILESTONES.md`); its first task, the reader check, is already done. Only on the
 owner's go-ahead, and after ClassiFile's own CP5 work: SummarEase must not delay it.

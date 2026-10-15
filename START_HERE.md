@@ -17,9 +17,11 @@ them as readable text you can copy or export.
 2. `CLAUDE.md`: standing rules for the agent working here.
 3. `DOS_AND_DONTS.md`: short lessons from building ClassiFile.
 4. `MILESTONES.md`: M0 to M4, each with stop points and acceptance checks.
-5. `READER.md`: how SummarEase gets its document reader (a recommendation to confirm in M0).
-6. `INTEGRATION.md`: a draft of how ClassiFile may call SummarEase later (M4, after ClassiFile v1).
+5. `EVALUATION.md`: how summaries are measured, with one command for every number.
+6. `READER.md`: how SummarEase gets its document reader (option (a), set up in M0).
+7. `INTEGRATION.md`: a draft of how ClassiFile may call SummarEase later (M4, after ClassiFile v1).
+8. `docs/STATUS.md`: what is built, what is open, and the decisions waiting for the owner.
 
 ## Status
 
-Nothing is built yet. Work starts with M0, and only on the owner's go-ahead.
+M0 is done. Next is M1, only on the owner's go-ahead. See `docs/STATUS.md`.

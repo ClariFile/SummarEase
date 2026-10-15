@@ -28,6 +28,11 @@ ClassiFile, by rule and by test.
   - ClassiFile's code and installer would change, right before its v1;
   - every reader change needs a release before either app can use it.
 
+## Taken in M0: (a)
+
+The copy is ClassiFile's tag `reader-v6`; `summarease/reader/SOURCE.md` lists the hash of each file, and a test
+(M1, first task) checks the copy against it.
+
 ## Recommendation: (a), for now
 
 ClassiFile is frozen for v1 apart from launch work and bug fixes, so its code should not change for this. A tagged

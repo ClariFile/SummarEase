@@ -1,6 +1,6 @@
 # Decision Record — SummarEase
 
-Version 0.3 · 2026-10-15
+Version 0.4 · 2026-10-15
 
 **Status:** authoritative. Only the owner can change it. Every change goes in the changelog at the end.
 Confirmed entries come from ClassiFile's decision record (A11) and the owner's decisions. Proposals are kept apart
@@ -42,6 +42,12 @@ summary.
 **C11 Look.** The SummarEase colour is violet (#6C47FF), and it uses the SummarEase icon.
 
 **C12 Four levels** (confirmed in 0.2, was P1): Minimum, Key points, By section, Maximum.
+- **Names shown to users** (since 0.4), each with a one-line explanation; the definitions and budgets below are
+  unchanged:
+  - *Brief* (Minimum): the main takeaway.
+  - *Key points* (the default level): the main points.
+  - *Detailed* (By section): section by section.
+  - *Comprehensive* (Maximum): the fullest useful summary, never a copy of the document.
 - **What a line is.** Every summary line is a sentence, a bullet or a line taken from the document, word for word,
   with a correct link to its page, slide or section. Nothing is reworded, joined or invented (C13).
 - **What each level contains.**
@@ -99,3 +105,6 @@ the document. Any later rewriting (P3) is a separate decision.
 - **0.3 (2026-10-15):** C14 what Export exports (was P6): the summary and the readable text, as PDF or Word, Word
   built with the standard library; a searchable copy of a scanned document is allowed later, not in v1. C12's
   length budgets accepted as starting defaults, tuned in M2 with the rubric. Authorized by the owner.
+- **0.4 (2026-10-15):** C12's levels are shown to users as Brief, Key points (the default), Detailed and
+  Comprehensive, each with a one-line explanation; their definitions and length budgets are unchanged. Authorized
+  by the owner.

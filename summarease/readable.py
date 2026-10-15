@@ -2,7 +2,7 @@
 
 Layout only. Every word the reader gave (a unit's text, then its OCR text, then its speaker notes) is shown once, in
 order, and nothing is added to the document's blocks. SummarEase's own words (page and slide labels, captions, what
-couldn't be read) are separate blocks of kind "label", "note" or "gap", so they never mix with the document's.
+couldn't be read) are separate blocks of the OWN_KINDS, so they never mix with the document's.
 """
 import re
 from collections import Counter
@@ -12,26 +12,29 @@ from html import escape
 from . import tokens as tk
 
 DOC_KINDS = ("title", "heading", "paragraph", "lines", "list", "table", "ocr", "notes")
-OWN_KINDS = ("label", "note", "gap")
+OWN_KINDS = ("label", "note", "gap", "gaps")
 
-HEADING_RATIO = 1.15     # PDF: a short block whose lines are all this much larger than the body text is a heading
-TITLE_RATIO = 1.6        # ... and this much larger, a level-1 heading
-HEADING_MAX_LINES = 3
-HEADING_MAX_CHARS = 200
+# PDF headings: a short run of lines (HEADING_MAX_WORDS or fewer) at the start of a block, clearly larger than the
+# page's body text, or bold where the body text is not. A paragraph is never promoted to a heading.
+HEADING_RATIO = 1.2
+TITLE_RATIO = 1.6        # this much larger: a level-1 heading
+HEADING_MAX_WORDS = 12
+BODY_MIN_CHARS = 200     # a page with less sized text than this takes the document's body size
 LIST_MARK = re.compile(r"^\s*(?:[•◦▪▫‣∙·○●■□➢➤►▶✓✔–—*-]\s|\(?\d{1,3}[.)]\s|\(?[a-z][.)]\s)")
 
 OCR_CAPTION = "Text read by OCR from a picture. It may contain errors."
 UNIT_NAMES = {"page": "Page", "slide": "Slide"}
-# What a unit's OCR status says about its pictures (reader/ocr.py). "done" is not a gap.
-OCR_GAPS = {
-    "no_text": "A picture here has no readable text: OCR found none.",
-    "no_readable_image": "A picture here could not be opened, so its text (if any) is not shown.",
-    "failed": "OCR failed on a picture here, so its text (if any) is not shown.",
-    "unavailable": "OCR is not installed, so the text of a picture here is not shown.",
-    "deferred": "OCR ran out of time before a picture here, so its text (if any) is not shown.",
-    "disabled": "OCR is switched off, so the text of a picture here is not shown.",
+GAP_NOTE = "A picture here couldn't be read."
+# Why, by the unit's OCR status (reader/ocr.py), for the details behind the top line. "done" is not a gap.
+GAP_REASONS = {
+    "no_text": "OCR found no text in it",
+    "no_readable_image": "it could not be opened",
+    "failed": "OCR failed on it",
+    "unavailable": "OCR is not installed",
+    "deferred": "OCR ran out of time",
+    "disabled": "OCR is switched off",
 }
-OCR_DROPPED = "Some of what OCR found in a picture here looked like noise and was left out."
+DETAILS = "#gap-details"
 
 
 @dataclass
@@ -39,9 +42,12 @@ class Block:
     kind: str                                  # DOC_KINDS hold the document's words; OWN_KINDS hold SummarEase's
     text: str = ""
     level: int = 2                             # headings
-    rows: list = field(default_factory=list)   # tables: [[cell, ...], ...]; lists: [item, ...]
+    rows: list = field(default_factory=list)   # tables: [[cell, ...]]; lists: [item]; gaps: [(unit, detail)]
+    unit: int | None = None                    # the page, slide, block or pasted paragraph it comes from
 
     def words(self):
+        if self.kind == "gaps":
+            return words(self.text)
         return words("\n".join(["\n".join(r) if isinstance(r, list) else r for r in self.rows] + [self.text]))
 
 
@@ -53,44 +59,44 @@ def doc_words(blocks):
     return [w for b in blocks if b.kind in DOC_KINDS for w in b.words()]
 
 
+def gapped_units(blocks):
+    """The units with a gap note, in order."""
+    return [b.unit for b in blocks if b.kind == "gap"]
+
+
 # -- from the reader's record ---------------------------------------------------------------------------------
-def from_record(record):
-    """Blocks for a DocumentRecord, in reading order, with gaps disclosed where they are and counted at the top."""
-    out, gapped = [], []
-    body = _body_size(record) if record.format == "pdf" else None
+def from_record(record, bold=None):
+    """Blocks for a DocumentRecord, in reading order, with gaps noted where they are and summed up at the top.
+    bold: for PDFs, {page: [[line is bold, ...] per layout block]} (worker.pdf_bold), or None."""
+    out, details = [], []
+    body = _body_size(record.units) if record.format == "pdf" else None
     for u in record.units:
         name = UNIT_NAMES.get(record.unit)
+        mine = []
         if name:
-            out.append(Block("label", f"{name} {u.index}" + (" (hidden in the presentation)" if u.kind == "hidden slide" else "")))
-        out += _native(record, u, body)
+            mine.append(Block("label", f"{name} {u.index}" + (" (hidden in the presentation)" if u.kind == "hidden slide" else "")))
+        mine += _native(record, u, body, (bold or {}).get(u.index))
         if u.ocr_text:
-            out += [Block("note", OCR_CAPTION), Block("ocr", u.ocr_text)]
-        gaps = ([OCR_GAPS[u.ocr_status]] if u.suspected_unread and u.ocr_status in OCR_GAPS else []) \
-            + ([OCR_DROPPED] if u.ocr_status == "done" and u.ocr_discarded_chars else [])
-        # ponytail: the OCR status is per unit, so a unit with one read and one unreadable picture is not flagged.
-        out += [Block("gap", g) for g in gaps]
-        if gaps:
-            gapped.append(u.index)
+            mine += [Block("note", OCR_CAPTION), Block("ocr", u.ocr_text)]
+        if u.suspected_unread and u.ocr_status in GAP_REASONS:
+            mine.append(Block("gap", GAP_NOTE))     # one short note per unit at most
+            where = f"{name} {u.index}" if name else f"Place {len(details) + 1}"
+            details.append((u.index, f"{where}: a picture couldn't be read ({GAP_REASONS[u.ocr_status]})."))
         if u.notes:
-            out += [Block("note", "Speaker notes"), Block("notes", u.notes)]
-    if gapped:
-        plural = "s" * (len(gapped) > 1)
-        where = f"{UNIT_NAMES[record.unit].lower()}{plural} {_list(gapped)}" if record.unit in UNIT_NAMES \
-            else f"{len(gapped)} place{plural}"
-        out.insert(0, Block("gap", f"Not everything could be read: {where}. Each is marked below."))
+            mine += [Block("note", "Speaker notes"), Block("notes", u.notes)]
+        for b in mine:
+            b.unit = u.index
+        out += mine
+    if details:
+        n = len(details)
+        where = f"{n} {record.unit}{'s' * (n > 1)}" if record.unit in UNIT_NAMES else f"{n} place{'s' * (n > 1)}"
+        out.insert(0, Block("gaps", f"Some pictures couldn't be read: {where}.", rows=details))
     return out
 
 
-def _list(numbers, most=10):
-    s = [str(n) for n in numbers]
-    if len(s) > most:
-        return ", ".join(s[:most]) + f" and {len(s) - most} more"
-    return s[0] if len(s) == 1 else ", ".join(s[:-1]) + " and " + s[-1]
-
-
-def _native(record, u, body):
+def _native(record, u, body, bold):
     if record.format == "pdf":
-        return _guarded(u, _pdf_blocks(u, body))
+        return _guarded(u, _pdf_blocks(u, body, bold))
     if record.format == "pptx":
         return _guarded(u, _slide_blocks(u))
     return _flow_block(u)
@@ -105,35 +111,76 @@ def _plain(text):
     return [Block("lines", p) for p in re.split(r"\n\s*\n", text) if p.strip()]
 
 
-def _body_size(record):
-    """The commonest line size in the document, weighted by characters: the size of its body text."""
+def _size_counts(units):
     sizes = Counter()
-    for u in record.units:
+    for u in units:
         for b in (u.layout or {}).get("blocks", []):
             for line in b["lines"]:
                 if line["size"]:
                     sizes[line["size"]] += len(line["text"].strip())
+    return sizes
+
+
+def _body_size(units):
+    """The commonest line size, weighted by characters: the size of the body text."""
+    sizes = _size_counts(units)
     return sizes.most_common(1)[0][0] if sizes else None
 
 
-def _pdf_blocks(u, body):
+def _pdf_blocks(u, doc_body, bold):
+    sizes = _size_counts([u])
+    body = sizes.most_common(1)[0][0] if sum(sizes.values()) >= BODY_MIN_CHARS else doc_body
+    layout = (u.layout or {}).get("blocks", [])
+    flags = bold if bold and len(bold) == len(layout) else [[False] * len(b["lines"]) for b in layout]
+    body_bold = _bold_share(layout, flags) >= 0.5
     out = []
-    for b in (u.layout or {}).get("blocks", []):
-        lines = [l for l in b["lines"] if l["text"].strip()]
-        texts = [l["text"].strip() for l in lines]
-        if not texts:
-            continue
-        smallest = min(l["size"] or 0 for l in lines)
-        if (body and smallest >= body * HEADING_RATIO and len(texts) <= HEADING_MAX_LINES
-                and sum(map(len, texts)) <= HEADING_MAX_CHARS):
-            out.append(Block("heading", " ".join(texts), level=1 if smallest >= body * TITLE_RATIO else 2))
-            continue
-        para = []   # lines flow into one paragraph; a line that starts with a list mark starts a new one
-        for t in texts:
-            if para and LIST_MARK.match(t):
-                out.append(Block("paragraph", " ".join(para)))
-                para = []
-            para.append(t)
+    for b, bf in zip(layout, flags):
+        lines = [(l["text"].strip(), l["size"] or 0, f) for l, f in zip(b["lines"], bf + [False] * len(b["lines"]))
+                 if l["text"].strip()]
+        run = 0     # leading lines that look like a heading
+        while run < len(lines) and body and _headingish(lines[run], body, body_bold):
+            run += 1
+        head = " ".join(t for t, _, _ in lines[:run])
+        if run and len(head.split()) <= HEADING_MAX_WORDS and not _sentence(head):
+            biggest = max(s for _, s, _ in lines[:run])
+            level = 1 if biggest >= body * TITLE_RATIO else 2 if biggest >= body * HEADING_RATIO else 3
+            out.append(Block("heading", head, level=level))
+            lines = lines[run:]
+        out += _flow([t for t, _, _ in lines])
+    return out
+
+
+def _headingish(line, body, body_bold):
+    text, size, is_bold = line
+    if not re.search(r"[A-Za-z]", text):
+        return False
+    return size >= body * HEADING_RATIO or (is_bold and not body_bold and size >= body * 0.95)
+
+
+def _sentence(text):
+    """A short line ending like a sentence is body text, not a heading."""
+    return text.endswith((".", "!", "?", ":", ";", ",")) and len(text.split()) >= 4
+
+
+def _bold_share(layout, flags):
+    total = boldc = 0
+    for b, bf in zip(layout, flags):
+        for l, f in zip(b["lines"], bf):
+            n = len(l["text"].strip())
+            total += n
+            boldc += n if f else 0
+    return boldc / total if total else 0
+
+
+def _flow(texts):
+    """Lines flow into one paragraph; a line that starts with a list mark starts a new one."""
+    out, para = [], []
+    for t in texts:
+        if para and LIST_MARK.match(t):
+            out.append(Block("paragraph", " ".join(para)))
+            para = []
+        para.append(t)
+    if para:
         out.append(Block("paragraph", " ".join(para)))
     return out
 
@@ -171,15 +218,23 @@ def _flow_block(u):
 # -- pasted text ----------------------------------------------------------------------------------------------
 def from_text(text):
     """Pasted text: paragraphs split at blank lines, line breaks kept. Held in memory only (record C9)."""
-    return _plain(text)
+    blocks = _plain(text)
+    for i, b in enumerate(blocks, 1):
+        b.unit = i
+    return blocks
 
 
 # -- HTML for the view ----------------------------------------------------------------------------------------
-def to_html(blocks, t):
-    """The blocks as HTML for a QTextDocument, in the colours of theme t (a tokens.THEMES entry)."""
+def to_html(blocks, t, details=False):
+    """The blocks as HTML for a QTextDocument, in the colours of theme t (a tokens.THEMES entry). Each unit starts
+    with an anchor "u<unit>" that the summary's links scroll to. details: show the gap details."""
     para = f"margin-top:0; margin-bottom:{tk.RELATED + tk.TIGHT}px;"
     out = [f'<body style="font-family:\'{tk.FONT}\'; font-size:{tk.TEXT_READING}px; color:{t["text"]};">']
+    unit = None
     for b in blocks:
+        if b.unit is not None and b.unit != unit:
+            unit = b.unit
+            out.append(f'<a name="u{unit}"></a>')
         e = escape(b.text).replace("\n", "<br>")
         if b.kind == "label":
             out.append(f'<p style="margin-top:{tk.PAD}px; margin-bottom:{tk.RELATED}px; color:{t["secondary"]}; '
@@ -189,6 +244,8 @@ def to_html(blocks, t):
                        f'font-size:{tk.TEXT_SECONDARY}px;">{e}</p>')
         elif b.kind == "gap":
             out.append(f'<p style="{para} color:{t["amber"]}; font-size:{tk.TEXT_SECONDARY}px;">{e}</p>')
+        elif b.kind == "gaps":
+            out.append(gaps_html(b, t, details))
         elif b.kind in ("title", "heading"):
             size = tk.TEXT_TITLE if b.level == 1 else tk.TEXT_HEADING if b.level == 2 else tk.TEXT_READING + 1
             out.append(f'<p style="margin-top:{tk.GROUP}px; margin-bottom:{tk.RELATED}px; font-size:{size}px; '
@@ -207,3 +264,16 @@ def to_html(blocks, t):
         else:   # paragraph, lines
             out.append(f'<p style="{para}">{e}</p>')
     return "".join(out) + "</body>"
+
+
+def gaps_html(b, t, details):
+    """The single line about what couldn't be read, with its details behind a disclosure link."""
+    toggle = "Hide details" if details else "Show details"
+    html = (f'<p style="margin-top:0; margin-bottom:{tk.RELATED}px; color:{t["amber"]}; font-size:{tk.TEXT_SECONDARY}px;">'
+            f'{escape(b.text)} <a href="{DETAILS}" style="color:{t["link"]};">{toggle}</a></p>')
+    if details:
+        html += (f'<ul style="margin-top:0; margin-bottom:{tk.GROUP}px; color:{t["secondary"]}; '
+                 f'font-size:{tk.TEXT_SECONDARY}px;">'
+                 + "".join(f'<li><a href="#u{u}" style="color:{t["link"]};">{escape(d)}</a></li>' for u, d in b.rows)
+                 + "</ul>")
+    return html

@@ -52,8 +52,9 @@ Each summary, at each level being tested, is scored by the owner on four points,
 
 ## One command
 
-`python -m tools.evaluate` (to be built in M2) runs every method on the development set, writes the summaries for
-blind scoring, runs the automatic checks, and prints one report: documents counted and left out (with the reason),
+`python -m tools.evaluate` (built in M2: the automatic checks so far; blind scoring and `--final` are added with the
+reference key points) runs every method on the development set, writes the summaries for blind scoring, runs the
+automatic checks, and prints one report: documents counted and left out (with the reason),
 each method's rubric totals per document kind, the checks, and a simple range beside each share. It is
 deterministic: anything drawn at random uses a fixed seed. `--final` runs the held-out set once per frozen version
 and refuses a second run.

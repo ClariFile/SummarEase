@@ -16,7 +16,45 @@
   forward from M1 at the owner's request): `tests/test_reader_copy.py` fails if any file in `summarease/reader/`
   is added, missing or differs from the hashes in `SOURCE.md`.
 
-## Done: M1 Read files and show the readable text view (2026-10-15), waiting at its stop point
+## Built: UI redesign and M2 (2026-10-15), waiting at its stop point
+
+**Interface**
+- A compact header (the app, the document's name shortened with "…", Open document…, Paste text) and a workspace
+  of two resizable panes, Source and Summary (Summary a little wider), each with one scroll area. Below 960 px the
+  panes become tabs. Text lines stop at about 80 characters while the panes fill the window. 24/16/8 px spacing;
+  violet only on Summarize, focus outlines, the current tab and links.
+- The Summary pane: Copy and Export… on its caption row; the Detail level control, Summarize, the level's one-line
+  explanation and a notice line. States: empty, working (the last summary stays), done, and error (the last summary
+  stays). Changing the level never starts work or clears the summary; a summary of another level is said.
+- Every summary line links to its page, slide or section; a click scrolls the Source pane there (and opens the
+  Source tab when narrow).
+- Reduce motion: the app has no animations of its own; when Windows' animation effects are off, Qt's animated
+  menus, combo boxes and tooltips are switched off too.
+- Screenshots: `python -m tools.screenshots` (invented documents; 100%, 125%, 150%; light and dark; wide and
+  narrow; every summary state; keyboard focus), saved in `data\screenshots` (not tracked).
+
+**Reading quality**
+- PDF headings: only a short run of lines (12 words or fewer) at the start of a block, clearly larger than the
+  page's body text (1.2 times) or bold where the body is not, and not ending like a sentence. The reader keeps
+  sizes but not weights, so the worker reads the font weights from the same bytes (checked by hash).
+- What couldn't be read: one short note per page at most, one line at the top, details behind "Show details".
+  Dropped OCR noise is no longer mentioned.
+
+**Summaries** (`summarease/summarize.py`, record C12, C13)
+- Four levels built by one rule set from any method's ranking: Detailed first (each section's heading and up to
+  3 lines), Key points and Brief chosen from it, Comprehensive adding to it, so the levels nest. Budgets as C12.
+  Speaker notes and hidden slides appear only at Comprehensive; OCR never stands alone at Brief when there is native
+  text; headers, footers and template lines are left out.
+- Three methods: the opening-lines baseline; structure first for slides (PPTX, and PDFs that are mostly landscape
+  with few words a page); sentence ranking with near-duplicates removed for prose. The app uses structure for slides
+  (C12) and the baseline for prose until a method beats it on the rubric (MILESTONES.md).
+- Copy and Export (PDF and Word) share one text: each line, then where it is from, OCR and notes marked. An export
+  is read back and checked before it is saved, and never overwrites a file.
+- `python -m tools.evaluate`: the automatic checks on the development set, by neutral ID. Not yet run on the
+  development files: see Open.
+- **Tests (84).**
+
+## Done: M1 Read files and show the readable text view (2026-10-15)
 
 - **The window** (`summarease/app.py`): open a document with the button, Ctrl+O or drag-and-drop, or paste text
   with the button or Ctrl+V. The text is shown in one reading column; the status line says what was read.
@@ -58,12 +96,18 @@
 
 ## Open
 
+- **The development set in `data\development`:** copying ClassiFile's development files there was refused by the
+  agent's permission check (personal documents). The owner copies them, allows the copy, or runs the evaluation on
+  ClassiFile's folders in place (`python -m tools.evaluate --set <folders>`, read only; the renaming check makes a
+  temporary copy of each file and deletes it).
+- **A reading of C12 for the owner to confirm:** below 375 words, 40% of W is less than Detailed's floor of 150
+  words, so Comprehensive could not hold Detailed. The code gives Comprehensive at least Detailed's budget.
 - **The owner's reference key points** for about 10 development documents, written before any method is tuned.
 - **SummarEase's held-out set** (`data\final-check`): copies of ClassiFile's `data\validation` and
   `data\final-eval`, taken after ClassiFile's CP5 (`EVALUATION.md`). Until then they stay unread.
 - The repository's commits are pushed to GitHub's `main`, each push after the privacy audit (0 hits).
 
-## Decided, 2026-10-15 (record 0.3)
+## Decided, 2026-10-15 (record 0.3; level names in 0.4)
 
 - **Export (C14, was P6):** the summary and the readable text, as PDF or Word; the Word file built with the
   standard library. A searchable copy of a scanned document is allowed later, as a new file made on request, but
@@ -100,6 +144,5 @@ already installed, writes PDF pages with real text.
 
 ## Next milestone
 
-**M2 The Minimum and Key points levels** (`MILESTONES.md`), after the owner has tried M1's view on development
-files and given the go-ahead. Before M2's methods are compared: copies of ClassiFile's development files in
-SummarEase's `data\development`, and the owner's reference key points (`EVALUATION.md`).
+The rubric comparison of M2's methods, once the owner's reference key points exist (`EVALUATION.md`); then M3
+(Export of the readable text, the owner's review). Only on the owner's go-ahead.

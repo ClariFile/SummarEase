@@ -24,5 +24,5 @@ them as readable text you can copy or export.
 
 ## Status
 
-M0 and M1 are done; M1 waits at its stop point (the owner tries the view). Next is M2, only on the owner's
+M0 and M1 are done; the UI redesign and M2 are built and wait at their stop point. Next is M3, only on the owner's
 go-ahead. See `docs/STATUS.md`.

@@ -1,31 +1,65 @@
-"""Reading runs in a worker process with a time limit per file (DOS_AND_DONTS.md): a crash, a hang or a timeout is
-an operational failure, reported plainly, never a result. The worker only reads; it writes no file."""
+"""Heavy work runs in a worker process with a time limit (DOS_AND_DONTS.md): a crash, a hang or a timeout is an
+operational failure, reported plainly, never a result. The workers only read; they write no file."""
+import hashlib
 import multiprocessing as mp
 import time
 
 from .reader import ReadResult, read_document
 
 TIME_LIMIT = 300    # seconds per file; the reader's own OCR budget (240 s) fits inside it
-TIMED_OUT = "reading took longer than the time limit"
-STOPPED = "the reader stopped unexpectedly"
+TIMED_OUT = "it took longer than the time limit"
+STOPPED = "the worker stopped unexpectedly"
+BOLD = 16           # PyMuPDF span flag
 
 
-def _read(path, conn):
+def read(conn, path):
+    """Read a document: ("ok", (ReadResult, bold)) where bold is pdf_bold's map for a PDF, else None."""
     try:
         res = read_document(path)
+        bold = pdf_bold(path, res.sha256) if res.status == "ok" and res.record.format == "pdf" else None
     except Exception as e:     # the reason is the error's type only: never document text
-        res = ReadResult("failed", f"error while reading ({type(e).__name__})", None, None)
-    conn.send(res)
+        res, bold = ReadResult("failed", f"error while reading ({type(e).__name__})", None, None), None
+    conn.send(("ok", (res, bold)))
     conn.close()
 
 
-class ReadJob:
-    """One file read in its own process. poll() returns None while it runs, then a ReadResult once."""
+def pdf_bold(path, sha256):
+    """{page: [[line is bold, ...] per text block]}, in the order of the reader's layout blocks and lines. The reader
+    keeps sizes but not weights, so the fonts are read here, from the same bytes (checked by hash), read-only."""
+    import pymupdf
 
-    def __init__(self, path, time_limit=TIME_LIMIT, target=_read):
+    from .reader.pdf import LAYOUT_FLAGS
+
+    with open(path, "rb") as f:
+        data = f.read()
+    if hashlib.sha256(data).hexdigest() != sha256:
+        return None
+    out = {}
+    with pymupdf.open(stream=data, filetype="pdf") as doc:
+        for i, page in enumerate(doc, 1):
+            blocks = [b for b in page.get_text("dict", flags=LAYOUT_FLAGS)["blocks"] if b.get("type") == 0]
+            out[i] = [[all(s["flags"] & BOLD or "bold" in s["font"].lower() for s in l["spans"] if s["text"].strip())
+                       and any(s["text"].strip() for s in l["spans"]) for l in b["lines"]] for b in blocks]
+    return out
+
+
+def call(conn, fn, *args):
+    """Run fn(*args) and send its result, or an Exception's type name (never its message, which may hold text)."""
+    try:
+        conn.send(("ok", fn(*args)))
+    except Exception as e:
+        conn.send(("failed", type(e).__name__))
+    conn.close()
+
+
+class Job:
+    """target(conn, *args) in its own process; the target sends ("ok", result) or ("failed", reason). poll() returns
+    None while it runs, then that pair once, or ("failed", reason) for a crash or a timeout."""
+
+    def __init__(self, target, *args, time_limit=TIME_LIMIT):
         ctx = mp.get_context("spawn")
         self._conn, child = ctx.Pipe(duplex=False)
-        self._proc = ctx.Process(target=target, args=(str(path), child), daemon=True)
+        self._proc = ctx.Process(target=target, args=(child, *args), daemon=True)
         self._proc.start()
         child.close()
         self._deadline = time.monotonic() + time_limit
@@ -39,10 +73,10 @@ class ReadJob:
                 return res
         except (EOFError, OSError):     # the process ended without sending a result (a broken pipe on Windows)
             self._finish()
-            return ReadResult("failed", STOPPED, None, None)
+            return ("failed", STOPPED)
         if time.monotonic() > self._deadline:
             self.cancel()
-            return ReadResult("failed", TIMED_OUT, None, None)
+            return ("failed", TIMED_OUT)
         return None
 
     def cancel(self):

@@ -44,6 +44,11 @@ ClassiFile v1.
 
 ## M2 The Minimum and Key points levels
 
+**Widened by the owner on 2026-10-15:** M2 is built together with a UI redesign, all four levels (Brief, Key
+points, Detailed, Comprehensive), Copy, and Export of the summary. The methods are built and checked automatically;
+comparing them on the rubric waits for the owner's reference key points. What stays for M3: Export of the readable
+text, and the owner's review of the levels and exports.
+
 - Extractive summaries at two levels, as the record defines them (C12, C13). Each line links to its page, slide or
   section.
 - Gaps are disclosed in the summary.

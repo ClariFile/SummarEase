@@ -1,6 +1,9 @@
 """The two themes: every pair of colours the interface puts together is readable (WCAG contrast ratios). Text at
 least 4.5:1; control borders and the focus outline at least 3:1. Dividers are decorative and not held to 3:1.
-And the look (record C11, DOS_AND_DONTS.md): violet only on the primary button, focus, selection and links."""
+And the look (record C11, DOS_AND_DONTS.md): violet only on the primary button, focus, the current tab's bar,
+selection and links, as teal in ClassiFile."""
+import re
+
 import pytest
 
 from summarease.tokens import THEMES, VIOLET
@@ -63,6 +66,6 @@ def test_the_themes_are_complete_violet_is_the_accent_and_large_surfaces_are_gre
         for block in sheet.split("}"):
             selector, _, body = block.partition("{")
             if t["accent"] in body or t["primary"] in body:
-                assert "focus" in selector or "#primary" in selector, selector.strip()
+                assert re.search(r"focus|#primary|tab:selected", selector), selector.strip()   # the selection bar
             if ":hover" in selector and "#primary" not in selector:
                 assert t["accent"] not in body and t["selection"] not in body, selector.strip()

@@ -3,6 +3,9 @@
 Each milestone ends at a stop point: report, then wait for the owner's go-ahead. All tests pass at every stop.
 Every number reported comes from the one evaluation command in `EVALUATION.md`.
 
+**Order:** M1 to M3 need none of ClassiFile's data and may start without waiting for ClassiFile. Only M4 waits for
+ClassiFile v1.
+
 ## M0 Project setup (done 2026-10-14; see `docs/STATUS.md`)
 
 - Environment: Python 3.11+, a virtual environment, requirements files, a licence file, `.gitignore` (with
@@ -72,7 +75,7 @@ Every number reported comes from the one evaluation command in `EVALUATION.md`.
 
 - The remaining levels (By section, Maximum), with the same checks as M2.
 - Copy.
-- Export, once the owner has decided what is exported (record P6): new files only, where the user chooses. Each
+- Export of the summary and the readable text, as PDF or Word (record C14): new files only, where the user chooses. Each
   export is written to a temporary file, checked, then saved without overwriting anything.
 
 **Stop point:** the owner reviews the levels and the exports.

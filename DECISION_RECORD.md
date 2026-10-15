@@ -1,6 +1,6 @@
 # Decision Record — SummarEase
 
-Version 0.2 · 2026-10-15
+Version 0.3 · 2026-10-15
 
 **Status:** authoritative. Only the owner can change it. Every change goes in the changelog at the end.
 Confirmed entries come from ClassiFile's decision record (A11) and the owner's decisions. Proposals are kept apart
@@ -28,7 +28,7 @@ words.
 - Copy puts the text on the clipboard.
 - Export creates a searchable PDF or a Word file.
 - Exports are new files, made only on request and saved where the user chooses. Originals are never changed.
-- What is exported is still open (P6).
+- What is exported: C14.
 
 **C7 Content only.** Summaries come from the document's content, never from its file name.
 
@@ -59,6 +59,9 @@ summary.
   | By section | the larger of 150 words and 20% of W | at most 3 per section |
   | Maximum | 40% of W | no fixed limit |
 
+  The owner accepted these budgets in 0.3 as starting defaults; they are tuned in M2 with the rubric
+  (`EVALUATION.md`).
+
   A document shorter than a level's floor may be shown whole at that level, still as linked source lines.
 - **Each higher level includes the sources of the level below:** every line of Minimum is in Key points, every
   line of Key points is in By section, and every line of By section is in Maximum. A line appears once per level.
@@ -71,13 +74,19 @@ summary.
 **C13 Extractive first** (confirmed in 0.2, was P2): summaries are made of sentences, bullets and lines taken from
 the document. Any later rewriting (P3) is a separate decision.
 
+**C14 What Export exports** (confirmed in 0.3, was P6):
+- The summary (the level on screen, each line with its page, slide or section) and the readable text (C5), each
+  as a new PDF with real, searchable text or as a Word file.
+- The Word file is built with the standard library (no new dependency); the PDF with PyMuPDF, already installed.
+- A searchable copy of a scanned document (its pages with the OCR text laid under them) is not in v1. It stays a
+  possible later feature: it would be a new file made on request, so it is allowed.
+
 ## Proposals (not confirmed)
 
 - **P3 A local LLM only later:** optional, and only to rewrite an extractive draft, never to add content.
 - **P4 Evaluation** (carried over from ClassiFile's record, B6): page references do not prove that a summary keeps
   the meaning. Kept meaning and qualifications must be checked. The plan is in `EVALUATION.md`.
 - **P5 The reader:** see `READER.md` (option (a) was taken in M0; the copy is ClassiFile's tag `reader-v6`).
-- **P6 What Export exports** (the owner decides; the options and a recommendation are in `docs/STATUS.md`).
 
 ## Changelog
 
@@ -87,3 +96,6 @@ the document. Any later rewriting (P3) is a separate decision.
   testable level definitions: what each level contains, length budgets [Default] relative to document length,
   nesting of sources, slides by structure, OCR trusted less. P3 stays a proposal. P6 (what Export exports) added
   as an open decision. Authorized by the owner.
+- **0.3 (2026-10-15):** C14 what Export exports (was P6): the summary and the readable text, as PDF or Word, Word
+  built with the standard library; a searchable copy of a scanned document is allowed later, not in v1. C12's
+  length budgets accepted as starting defaults, tuned in M2 with the rubric. Authorized by the owner.

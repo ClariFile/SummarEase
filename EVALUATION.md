@@ -11,9 +11,10 @@ estimates, and a score is never a probability.
   writing; only the copies are read.
 - **Never read ClassiFile's `data\validation` or `data\final-eval`** until ClassiFile's CP5 is done. They are
   ClassiFile's held-out sets, and reading them would turn them into development data.
-- **SummarEase's own held-out set:** before any tuning, the owner sets aside a few documents of each kind (slides,
-  prose, scanned pages) in `data\final-check`. It is used once per frozen version, for a final check, as in
-  ClassiFile. The tools refuse it otherwise.
+- **SummarEase's own held-out set** (`data\final-check`): after ClassiFile's CP5 is done, copies of ClassiFile's
+  `data\validation` and `data\final-eval` files become SummarEase's held-out set. SummarEase has never seen them,
+  so they are held out for it too. Until then they are not read or copied. Once in place, the set is used once per
+  frozen version, for a final check, as in ClassiFile. The tools refuse it otherwise.
 - Documents are named in reports by neutral IDs (D1, D2, …), with a local, untracked map. No document text,
   title or name goes into tracked files.
 

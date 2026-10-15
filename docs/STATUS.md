@@ -31,14 +31,21 @@
 
 ## Open
 
-- **What Export exports** (record P6): the owner's decision, below.
 - **The owner's reference key points** for about 10 development documents, written before any method is tuned.
-- **SummarEase's held-out set** (`data\final-check`), set aside by the owner before M2's tuning starts.
-- ClassiFile's `data\validation` and `data\final-eval` stay unread until ClassiFile's CP5 is done.
-- The repository's commits (M0, planning, reader check) are pushed to GitHub's `main` after the privacy audit
-  (0 hits).
+- **SummarEase's held-out set** (`data\final-check`): copies of ClassiFile's `data\validation` and
+  `data\final-eval`, taken after ClassiFile's CP5 (`EVALUATION.md`). Until then they stay unread.
+- The repository's commits are pushed to GitHub's `main`, each push after the privacy audit (0 hits).
 
-## Decision for the owner: what Export exports (P6)
+## Decided, 2026-10-15 (record 0.3)
+
+- **Export (C14, was P6):** the summary and the readable text, as PDF or Word; the Word file built with the
+  standard library. A searchable copy of a scanned document is allowed later, as a new file made on request, but
+  not in v1.
+- **Length budgets (C12):** the table is accepted as starting defaults, tuned in M2 with the rubric.
+- **Order:** M1 to M3 need none of ClassiFile's data and may start now. Only M4 waits for ClassiFile v1.
+- **Held-out set:** ClassiFile's validation and final-eval files, copied after its CP5 (above).
+
+## Background: the Export options (decided as d, "a and b")
 
 The record confirms that Export makes a searchable PDF or a Word file, as new files only (C6). Which content it
 holds is open.
@@ -66,5 +73,5 @@ already installed, writes PDF pages with real text.
 
 ## Next milestone
 
-**M1 Read files and show the readable text view** (`MILESTONES.md`); its first task, the reader check, is already done. Only on the
-owner's go-ahead, and after ClassiFile's own CP5 work: SummarEase must not delay it.
+**M1 Read files and show the readable text view** (`MILESTONES.md`); its first task, the reader check, is already
+done. The owner gave the go-ahead on 2026-10-15.

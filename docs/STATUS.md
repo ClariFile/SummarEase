@@ -37,9 +37,11 @@
   the tests, and the rendered view adds or drops nothing; the original's hash is unchanged and nothing is written
   next to it; pasted text leaves no file anywhere and is not logged; no document text or file name is logged; every
   OCR gap is disclosed; a hung or crashed worker is reported; every colour pair in both themes is readable.
-- **A read-only check on ClassiFile's development files** (78 documents: 58 PDF, 8 PPTX, 5 DOCX, 7 ODT; OCR off,
-  not part of the test suite): all 78 read; on every one, the view's words equal the reader's words and the
-  rendered text equals the view. 35 of 1,148 PDF pages fell back to their plain text.
+- **A read-only check on ClassiFile's development files** (78 documents: 58 PDF, 8 PPTX, 5 DOCX, 7 ODT; not part
+  of the test suite), run with OCR off and again with OCR on: all 78 read both times; on every one, the view's
+  words equal the reader's words and the rendered text equals the view. 35 of 1,148 PDF pages fell back to their
+  plain text. With OCR on, 62 of the 78 show at least one gap note (this counts notes about OCR noise left out);
+  the slowest document took 32 s.
 
 ## Planning, 2026-10-15 (documents only; no code changed)
 

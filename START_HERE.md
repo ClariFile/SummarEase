@@ -24,4 +24,5 @@ them as readable text you can copy or export.
 
 ## Status
 
-M0 is done. Next is M1, only on the owner's go-ahead. See `docs/STATUS.md`.
+M0 and M1 are done; M1 waits at its stop point (the owner tries the view). Next is M2, only on the owner's
+go-ahead. See `docs/STATUS.md`.

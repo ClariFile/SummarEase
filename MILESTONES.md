@@ -21,7 +21,7 @@ ClassiFile v1.
 - Tests run.
 - The reader reads a PDF, a PPTX, a DOCX and an ODT made for the tests.
 
-## M1 Read files and show the readable text view
+## M1 Read files and show the readable text view (done 2026-10-15; see `docs/STATUS.md`)
 
 - **First task: the reader check** (done early, in M0, on 2026-10-15: `tests/test_reader_copy.py`). A test that fails if any file in `summarease/reader/` differs from ClassiFile's
   tag `reader-v6`: it hashes each file (SHA-256, with Windows line endings read as plain line breaks) and compares

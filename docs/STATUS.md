@@ -16,6 +16,31 @@
   forward from M1 at the owner's request): `tests/test_reader_copy.py` fails if any file in `summarease/reader/`
   is added, missing or differs from the hashes in `SOURCE.md`.
 
+## Done: M1 Read files and show the readable text view (2026-10-15), waiting at its stop point
+
+- **The window** (`summarease/app.py`): open a document with the button, Ctrl+O or drag-and-drop, or paste text
+  with the button or Ctrl+V. The text is shown in one reading column; the status line says what was read.
+- **The readable text** (`summarease/readable.py`): the reader's words, laid out only. PDF: headings from the
+  reader's font sizes (a short block clearly larger than the body text), paragraphs from its blocks, list items
+  where a line starts with a list mark. PPTX: each slide's title as a heading, each shape's lines kept. DOCX and
+  ODT: the reader's titles, headings, paragraphs, lists, tables and footnotes. Page and slide labels, captions and
+  gap notes are SummarEase's own blocks, kept apart from the document's words. If a page's layout ever disagreed
+  with its text, the text itself is shown.
+- **OCR text** is shown in a shaded block under the caption "Text read by OCR from a picture. It may contain
+  errors." **Gaps** are said where they are (OCR found no text, a picture couldn't be opened, OCR failed, not
+  installed, out of time, switched off, or noise left out) and summed up at the top.
+- **The worker** (`summarease/worker.py`): each file is read in its own process with a 5-minute limit; a timeout or
+  a crash is reported plainly and nothing is shown for it. The window polls it and is updated in place.
+- **Themes:** light and dark from one tokens file (`summarease/tokens.py`, ClassiFile's structure, violet), the
+  style sheet and the Qt palette rebuilt when Windows' setting changes, keeping the scroll position.
+- **Tests (35):** the words shown equal the reader's words, in order, for a PDF, a PPTX, a DOCX and an ODT made for
+  the tests, and the rendered view adds or drops nothing; the original's hash is unchanged and nothing is written
+  next to it; pasted text leaves no file anywhere and is not logged; no document text or file name is logged; every
+  OCR gap is disclosed; a hung or crashed worker is reported; every colour pair in both themes is readable.
+- **A read-only check on ClassiFile's development files** (78 documents: 58 PDF, 8 PPTX, 5 DOCX, 7 ODT; OCR off,
+  not part of the test suite): all 78 read; on every one, the view's words equal the reader's words and the
+  rendered text equals the view. 35 of 1,148 PDF pages fell back to their plain text.
+
 ## Planning, 2026-10-15 (documents only; no code changed)
 
 - Record 0.2: four levels (C12) and extractive first (C13) confirmed by the owner, with testable definitions:
@@ -73,5 +98,6 @@ already installed, writes PDF pages with real text.
 
 ## Next milestone
 
-**M1 Read files and show the readable text view** (`MILESTONES.md`); its first task, the reader check, is already
-done. The owner gave the go-ahead on 2026-10-15.
+**M2 The Minimum and Key points levels** (`MILESTONES.md`), after the owner has tried M1's view on development
+files and given the go-ahead. Before M2's methods are compared: copies of ClassiFile's development files in
+SummarEase's `data\development`, and the owner's reference key points (`EVALUATION.md`).

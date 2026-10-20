@@ -78,7 +78,7 @@ def summaries(record, blocks, method):
 def evaluate(files, tmp):
     from summarease import checks
 
-    results = defaultdict(lambda: defaultdict(lambda: [0, 0]))   # (method, kind) -> check -> [passed, checked]
+    results = defaultdict(lambda: defaultdict(lambda: [0, 0]))   # (method, format) -> check -> [passed, checked]
     failures, left_out, kinds = [], [], defaultdict(int)
     for doc_id, path in files:
         got, reason = analyse(path)
@@ -93,7 +93,8 @@ def evaluate(files, tmp):
         texts = checks.unit_texts(record)
         src, _ = summaries(record, blocks, "baseline")
         kind = "slides" if src.slides else "prose"
-        kinds[kind] += 1
+        group = f"pdf {kind}" if record.format == "pdf" else f"{record.format} ({kind})"
+        kinds[group] += 1
         for method in ("baseline", "structure" if src.slides else "ranking"):
             _, levels = summaries(record, blocks, method)
             _, twice = summaries(record, blocks, method)
@@ -109,7 +110,7 @@ def evaluate(files, tmp):
                              if lv not in moved or not checks.same(levels[lv], moved[lv])],
             }
             for check, problems in found.items():
-                cell = results[(method, kind)][check]
+                cell = results[(method, group)][check]
                 cell[1] += 1
                 cell[0] += not problems
                 failures += [(doc_id, method, check, p) for p in problems]
@@ -142,16 +143,16 @@ def main(argv=None):
           f" (OCR {'off' if a.no_ocr else 'on'})")
     for doc_id, reason in left_out:
         print(f"  left out {doc_id}: {reason}")
-    print("  by kind: " + ", ".join(f"{k} {n}" for k, n in sorted(kinds.items())))
+    print("  by format: " + ", ".join(f"{k} {n}" for k, n in sorted(kinds.items())))
     print("\nAutomatic checks: documents passing every level, of documents checked (95% range)")
-    print(f"{'method':10} {'kind':7} " + " ".join(f"{c:>20}" for c in CHECKS))
-    for (method, kind), cells in sorted(results.items()):
+    print(f"{'method':10} {'format':14} " + " ".join(f"{c:>20}" for c in CHECKS))
+    for (method, group), cells in sorted(results.items()):
         row = []
         for c in CHECKS:
             k, n = cells[c]
             lo, hi = wilson(k, n)
             row.append(f"{k}/{n} ({lo:.0%}-{hi:.0%})")
-        print(f"{method:10} {kind:7} " + " ".join(f"{r:>20}" for r in row))
+        print(f"{method:10} {group:14} " + " ".join(f"{r:>20}" for r in row))
     print(f"\nProblems: {len(failures)}")
     for doc_id, method, check, problem in failures:
         print(f"  {doc_id} {method} {check}: {problem}")

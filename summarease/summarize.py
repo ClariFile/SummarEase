@@ -323,8 +323,8 @@ def build(src, level, method):
     chosen["brief"] = _greedy(pool, budget("brief", total), BRIEF_LINES)
     limit = budget(level, total)
     if level == "comprehensive":
-        # ponytail: 40% of W is less than Detailed's floor below 375 words; nesting needs Comprehensive to hold
-        # Detailed, so its budget is at least Detailed's. A reading of C12 for the owner to confirm.
+        # C12 (record 0.5): Comprehensive's budget is at least Detailed's, so it holds Detailed even below 375
+        # words, where 40% of W is less than Detailed's floor.
         limit = max(limit, budget("detailed", total), _words(detailed))
         hidden_heads = {s.heading for s in sections if s.heading and late(s.heading)}
         rest = defaultdict(list)

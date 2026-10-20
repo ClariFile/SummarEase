@@ -1,6 +1,6 @@
 # Decision Record — SummarEase
 
-Version 0.4 · 2026-10-15
+Version 0.5 · 2026-10-15
 
 **Status:** authoritative. Only the owner can change it. Every change goes in the changelog at the end.
 Confirmed entries come from ClassiFile's decision record (A11) and the owner's decisions. Proposals are kept apart
@@ -68,6 +68,9 @@ summary.
   The owner accepted these budgets in 0.3 as starting defaults; they are tuned in M2 with the rubric
   (`EVALUATION.md`).
 
+  Comprehensive's budget is at least Detailed's (confirmed in 0.5), so the levels stay nested: below 375 words,
+  40% of W is less than Detailed's floor of 150 words.
+
   A document shorter than a level's floor may be shown whole at that level, still as linked source lines.
 - **Each higher level includes the sources of the level below:** every line of Minimum is in Key points, every
   line of Key points is in By section, and every line of By section is in Maximum. A line appears once per level.
@@ -108,3 +111,5 @@ the document. Any later rewriting (P3) is a separate decision.
 - **0.4 (2026-10-15):** C12's levels are shown to users as Brief, Key points (the default), Detailed and
   Comprehensive, each with a one-line explanation; their definitions and length budgets are unchanged. Authorized
   by the owner.
+- **0.5 (2026-10-15):** C12: Comprehensive's budget is at least Detailed's, so the levels stay nested on short
+  documents. Authorized by the owner.

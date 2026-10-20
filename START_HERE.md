@@ -6,7 +6,8 @@ them as readable text you can copy or export.
 ## Where it fits
 
 - **ClariFile** is the suite. It has two separate apps.
-- **ClassiFile** files documents into categories. It is built and nearing v1 (its own repository).
+- **ClassiFile** files documents into categories in its own repository. Its release status is verified there;
+  completing CP5 is not the same as releasing v1.
 - **SummarEase** is this project. It works on its own. Later, ClassiFile may call it, but only after asking the
   user.
 - The two never share a catalog or a database. SummarEase never writes ClassiFile's data.
@@ -14,15 +15,22 @@ them as readable text you can copy or export.
 ## Read in this order
 
 1. `DECISION_RECORD.md`: what the owner has confirmed, kept apart from proposals. It is authoritative.
-2. `CLAUDE.md`: standing rules for the agent working here.
-3. `DOS_AND_DONTS.md`: short lessons from building ClassiFile.
-4. `MILESTONES.md`: M0 to M4, each with stop points and acceptance checks.
-5. `EVALUATION.md`: how summaries are measured, with one command for every number.
-6. `READER.md`: how SummarEase gets its document reader (option (a), set up in M0).
-7. `INTEGRATION.md`: a draft of how ClassiFile may call SummarEase later (M4, after ClassiFile v1).
-8. `docs/STATUS.md`: what is built, what is open, and the decisions waiting for the owner.
+2. [CLAUDE.md](CLAUDE.md) and [AGENTS.md](AGENTS.md): standing rules for agents.
+3. [docs/STATUS.md](docs/STATUS.md): what is implemented, verified, pending or proposed.
+4. [docs/FROM_CLASSIFILE.md](docs/FROM_CLASSIFILE.md): imported suite direction, the 2026-10-20 findings register
+   (H1–H8), owner questions (Q1–Q3), and design proposals (UX1–UX6).
+5. [DOS_AND_DONTS.md](DOS_AND_DONTS.md): lessons and shared design guidance.
+6. [MILESTONES.md](MILESTONES.md): M0 to M4, each with stop points and acceptance checks.
+7. [EVALUATION.md](EVALUATION.md): automatic checks, independent references and the owner's rubric.
+8. [READER.md](READER.md): the pinned reader, sync rule and known limitations.
+9. [INTEGRATION.md](INTEGRATION.md): confirmed boundaries and proposed M4 protocol, after ClassiFile v1.
 
 ## Status
 
-M0 and M1 are done; the UI redesign and M2 are built and wait at their stop point. Next is M3, only on the owner's
-go-ahead. See `docs/STATUS.md`.
+M0 and M1 are built; the UI redesign and four-level M2 implementation exist. M2 acceptance is still pending:
+the audit found gaps despite 84 passing tests, the previous development evaluation has no available saved report,
+and quality comparison waits for the owner's independent references. M3's remaining work is readable-text
+Copy/Export and the owner's review, only on the owner's go-ahead. M4 still waits for ClassiFile v1.
+
+The current work strengthens the existing handoffs. It neither rebuilds the app nor promotes proposals to
+requirements. Do not edit the authoritative decision record to resolve a conflict; present it to the owner.

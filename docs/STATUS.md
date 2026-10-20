@@ -1,6 +1,31 @@
 # SummarEase status
 
-2026-10-15 · decision record version 0.2
+2026-10-20 · reviewed against working-copy decision record 0.5
+
+## Current checkpoint: handoffs reviewed, application fixes pending
+
+This review improves the existing M0–M2 project; it does not start a rebuild or another milestone. The decision
+record and pre-existing code changes were left intact. Findings H1–H8, owner questions Q1–Q3 and optional design
+ideas UX1–UX6 are in [FROM_CLASSIFILE.md](FROM_CLASSIFILE.md).
+
+| State | Evidence and next action |
+|---|---|
+| Implemented | Reader, readable view, redesigned panes/tabs, four summary levels, summary Copy/Export, and the initial automatic evaluation command. |
+| Verified on 2026-10-20 | All 84 existing tests passed (`python -m pytest -q`, fresh temporary base directory). Synthetic probes reproduced H1–H6; H7/H8 are code-inspection findings. No fixes are claimed by this documentation update. |
+| Unverified development evaluation | An earlier run was launched, but its temporary saved report is unavailable. Completion and per-format results cannot be recovered from the conversation's "running" messages. Do not call it passed or assume it is still running. |
+| Awaiting owner/review | Independent references and blind prose baseline/ranking scoring; Q1 budget/section coverage, Q2 the short-document exception, and Q3 export destinations. The ten private reference files remain untouched. |
+| Remaining M3 work | Readable-text Copy/Export and the owner's review of levels/exports. Summary Copy/Export and all levels were brought forward into M2. |
+| Proposed only | UX1–UX6 except the already confirmed export scope and accepted v1.1 bullet-level task. Registration and integration remain M4-gated. |
+
+The next authorized code pass should first address or explicitly disposition the audit findings, with their
+acceptance cases. The existing green suite does not establish reliable budgets, protected-set refusal or safe
+cleanup of failed exports. No full development evaluation, live focus/scaling review, installer execution or
+held-out read was performed in this handoff review.
+
+**Repository state:** earlier edits to the record, summarizer, evaluation tool/tests and related documentation
+were still local when this review began. A documentation commit is not evidence that all earlier work is
+committed or pushed; check `git status` and the upstream comparison. Any push still requires a zero-hit privacy
+audit. Historical milestone entries below describe their dated checks, not blanket current acceptance.
 
 ## Done: M0 Project setup (2026-10-14)
 
@@ -42,17 +67,20 @@
 
 **Summaries** (`summarease/summarize.py`, record C12, C13)
 - Four levels built by one rule set from any method's ranking: Detailed first (each section's heading and up to
-  3 lines), Key points and Brief chosen from it, Comprehensive adding to it, so the levels nest. Budgets as C12.
+  3 lines), Key points and Brief chosen from it, Comprehensive adding to it, so the levels nest. The intended
+  budgets are C12's; H1/H3 record why current construction/checks do not establish that promise on all inputs.
   Speaker notes and hidden slides appear only at Comprehensive; OCR never stands alone at Brief when there is native
   text; headers, footers and template lines are left out.
 - Three methods: the opening-lines baseline; structure first for slides (PPTX, and PDFs that are mostly landscape
   with few words a page); sentence ranking with near-duplicates removed for prose. The app uses structure for slides
   (C12) and the baseline for prose until a method beats it on the rubric (MILESTONES.md).
-- Copy and Export (PDF and Word) share one text: each line, then where it is from, OCR and notes marked. An export
-  is read back and checked before it is saved, and never overwrites a file.
-- `python -m tools.evaluate`: the automatic checks on the development set, by neutral ID. Not yet run on the
-  development files: see Open.
-- **Tests (84).**
+- Copy and Export (PDF and Word) use the summary and its references, with OCR and notes marked. An export is
+  read back before publication and uses no-overwrite creation; H6 documents incomplete-file cleanup on failure,
+  and H3 calls for checking all presentation markers and labels.
+- `python -m tools.evaluate`: initial automatic checks, with neutral IDs and per-format reporting in local
+  work. The earlier development run has no available report; H3–H5 must be resolved before treating a successful
+  exit as acceptance.
+- **Tests (84):** passing existing cases; the new findings remain open.
 
 ## Done: M1 Read files and show the readable text view (2026-10-15)
 
@@ -94,32 +122,42 @@
 - `DOS_AND_DONTS.md`: lessons since the handoff (themes and contrast, worker processes, in-place updates, safe
   exports, tests without timing, one evaluation command, update checks on everything) and the look.
 
-## Open
+## Open acceptance work
 
-- **The development set in `data\development`:** copying ClassiFile's development files there was refused by the
-  agent's permission check (personal documents). The owner copies them, allows the copy, or runs the evaluation on
-  ClassiFile's folders in place (`python -m tools.evaluate --set <folders>`, read only; the renaming check makes a
-  temporary copy of each file and deletes it).
-- **A reading of C12 for the owner to confirm:** below 375 words, 40% of W is less than Detailed's floor of 150
-  words, so Comprehensive could not hold Detailed. The code gives Comprehensive at least Detailed's budget.
-- **The owner's reference key points** for about 10 development documents, written before any method is tuned.
+- **The owner's reference key points** for the 10 documents in `data\reference\` (set up 2026-10-15), written
+  before any method is tuned. Then the rubric comparison of the baseline and ranking for prose; the app switches
+  to ranking only if it wins.
 - **SummarEase's held-out set** (`data\final-check`): copies of ClassiFile's `data\validation` and
-  `data\final-eval`, taken after ClassiFile's CP5 (`EVALUATION.md`). Until then they stay unread.
-- The repository's commits are pushed to GitHub's `main`, each push after the privacy audit (0 hits).
+  `data\final-eval`, taken under the owner's post-CP5 plan (`EVALUATION.md`). Routine development and this audit
+  do not open them; any final check needs the owner's gate, a frozen version and the planned run ledger.
+- **Audit H1–H8:** correction/acceptance work, with Q1–Q3 submitted to the owner instead of editing the record.
+  Partial OCR failures require an upstream reader fix; the accepted bullet-level deferral is separate.
+- **Saved evaluation evidence:** after correcting the gate, produce a complete report per format on the
+  development copies. Do not reuse the old missing report as evidence.
 
-## Decided, 2026-10-15 (record 0.3; level names in 0.4)
+## v1.1 list
+
+- **Keep bullet levels in the reader**, so PowerPoint sub-bullets can wait for Comprehensive (record C12). It starts
+  in ClassiFile's reader after ClassiFile v1 and is copied back at a new tag (READER.md). Until then, every slide
+  line is treated as a top-level bullet.
+- **Proposed, not confirmed:** original-page previews (UX6). Search, precise source highlighting/return, text zoom,
+  Cancel, shared-token checks, local Help/About and installer adaptation are prioritized in the handoff, not
+  silently added to v1. Their target milestones still need approval.
+
+## Decided, 2026-10-15 (record 0.3; level names in 0.4; Comprehensive's budget in 0.5)
 
 - **Export (C14, was P6):** the summary and the readable text, as PDF or Word; the Word file built with the
   standard library. A searchable copy of a scanned document is allowed later, as a new file made on request, but
   not in v1.
 - **Length budgets (C12):** the table is accepted as starting defaults, tuned in M2 with the rubric.
-- **Order:** M1 to M3 need none of ClassiFile's data and may start now. Only M4 waits for ClassiFile v1.
+- **Order:** M1 to M3 implementation need not wait for ClassiFile v1; evaluation uses SummarEase's development
+  copies and independent references. Only M4 waits for ClassiFile v1, and milestone go-aheads still apply.
 - **Held-out set:** ClassiFile's validation and final-eval files, copied after its CP5 (above).
 
 ## Background: the Export options (decided as d, "a and b")
 
-The record confirms that Export makes a searchable PDF or a Word file, as new files only (C6). Which content it
-holds is open.
+This is historical decision background, not an open choice. C14 confirms new PDF/Word exports of both the
+summary and the readable text. Summary export is implemented; readable-text export remains for M3.
 
 | Option | What the user gets | Notes |
 |---|---|---|
@@ -128,21 +166,18 @@ holds is open.
 | c. A searchable copy of a scanned document | the scanned pages with their OCR text laid under them | a different feature: it writes OCR text into a copy of the document |
 | d. Several of these | a and b; c later if wanted | |
 
-**Recommendation: d, as "a and b".** Export what is on screen: the summary at its level, or the readable text,
-each as a new PDF with real text (searchable by nature) or a Word file. Leave c out of v1:
+**Accepted: d, as "a and b".** Export the summary at its shown level, or the readable text, each as a new PDF
+with real text or a Word file. A searchable scan copy is allowed as a possible later feature under C14, outside v1:
 - it is a separate feature with its own risks (OCR text placed under the wrong words, a copy that looks like the
   original but is not);
-- ClariFile's rule so far is that OCR text is never inserted into any document, original or copy (ClassiFile's
-  record A8). Option c would need the owner's explicit exception.
+- it must be a new file made on request; neither the original nor a ClassiFile-managed copy may be modified.
 
-**How a Word file would be made.** A .docx file is a zip of a few XML parts. ClassiFile's and SummarEase's tests
-already write .docx files by hand with the standard library (`tests/office_fixtures.py`). Recommendation: the
-standard library (`zipfile` and plain XML for the document, its styles and its relationships), about 150 lines,
-tested by reading the result back with the reader. The alternative is a new dependency (python-docx, MIT): less
-code and richer formatting, but one more package to approve, pin and ship. A PDF needs nothing new: PyMuPDF,
-already installed, writes PDF pages with real text.
+**Confirmed implementation choice:** Word uses standard-library ZIP/XML; PDF uses the already installed
+PyMuPDF (C14). Summary writers exist and read their output back. H6 and the remaining M3 acceptance cases still
+need completion; the earlier alternative dependency proposal is not a new dependency request.
 
 ## Next milestone
 
-The rubric comparison of M2's methods, once the owner's reference key points exist (`EVALUATION.md`); then M3
-(Export of the readable text, the owner's review). Only on the owner's go-ahead.
+First resolve the audit findings and record the owner's decisions on Q1–Q3. M2's rubric comparison waits for
+independent references; then M3 finishes readable-text Copy/Export and the owner's review. Only on the owner's
+go-ahead. Integration remains documentation-only until ClassiFile v1 and M4 authorization.

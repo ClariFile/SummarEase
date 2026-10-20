@@ -30,8 +30,31 @@ ClassiFile, by rule and by test.
 
 ## Taken in M0: (a)
 
-The copy is ClassiFile's tag `reader-v6`; `summarease/reader/SOURCE.md` lists the hash of each file, and a test
-(M1, first task) checks the copy against it.
+The copy is ClassiFile's tag `reader-v6`; `summarease/reader/SOURCE.md` lists the hash of each file.
+`tests/test_reader_copy.py` checks the files and hashes. It was completed early in M0 on 2026-10-15 at the
+owner's request, rather than remaining M1's first task.
+
+## Known limits and their owners (reviewed 2026-10-20)
+
+- **PowerPoint bullet levels:** not retained in this copy. The owner accepted the limitation for now and added
+  preservation of bullet levels to v1.1. It starts in ClassiFile's reader after ClassiFile v1, then comes back at
+  a tag. Do not claim lower levels already distinguish sub-bullets.
+- **Partial OCR failure (H8):** `reader/ocr.py:run` reports `done` if any image in a unit yields usable text, even
+  if another image fails. It needs an upstream record that preserves partial failures. SummarEase cannot recover
+  missing per-image outcomes from the current status alone. Its view and evaluation sharing that status does
+  not establish complete disclosure.
+- **Unsupported reader content:** chart text in PPTX is not read (`reader/ooxml.py`); equation structure is
+  flattened to text. These are extraction limits, not evidence that the source has no information.
+- **Summary exclusions are different:** the reader does extract table text, but SummarEase's summarizer skips
+  table blocks (H2). Correct the summarizer's outcome/disclosure locally; do not describe this as an OCR failure
+  or change the copied reader to work around it.
+- **PDF bold flags:** the worker supplements the record by reading font weights from bytes checked against the
+  reader's hash. Keep source identity checks when changing this path.
+
+The findings and acceptance cases are in [the handoff](docs/FROM_CLASSIFILE.md). Fixes to reader behavior start
+upstream; no local edit to the six pinned files, silent hash-table replacement, or import from ClassiFile's
+working tree. A sync records the tag, commit, record/format versions and hashes, then runs the copy and regression
+tests in both apps. Proposed original-page previews are not part of this reader sync.
 
 ## Recommendation: (a), for now
 

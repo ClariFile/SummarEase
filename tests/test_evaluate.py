@@ -15,11 +15,15 @@ def test_the_evaluation_reports_the_automatic_checks_by_neutral_id(tmp_path, mon
     make_docx(docs / "notes.docx")
     assert evaluate.main(["--set", str(docs), "--no-ocr"]) == 0
     out = capsys.readouterr().out
-    assert "4 documents found, 4 counted, 0 left out" in out and "by kind: prose 2, slides 2" in out
+    assert "4 documents found, 4 counted, 0 left out" in out
+    assert "by format: docx (prose) 1, pdf prose 1, pdf slides 1, pptx (slides) 1" in out
     assert "Problems: 0" in out
-    for method, kind in (("baseline", "prose"), ("baseline", "slides"), ("ranking", "prose"), ("structure", "slides")):
-        row = next(l for l in out.splitlines() if l.startswith(f"{method:10} {kind:7}"))
-        assert row.count("2/2") == len(evaluate.CHECKS)
+    rows = [("baseline", g) for g in ("docx (prose)", "pdf prose", "pdf slides", "pptx (slides)")] \
+        + [("ranking", "docx (prose)"), ("ranking", "pdf prose"), ("structure", "pdf slides"),
+           ("structure", "pptx (slides)")]
+    for method, group in rows:
+        row = next(l for l in out.splitlines() if l.startswith(f"{method:10} {group:14}"))
+        assert row.count("1/1") == len(evaluate.CHECKS)
     assert "Private" not in out and "deck" not in out                  # neutral IDs only
     assert "Private" not in (tmp_path / "doc_ids.csv").read_text(encoding="utf-8")
 

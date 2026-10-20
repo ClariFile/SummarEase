@@ -201,3 +201,15 @@ def test_the_checks_catch_deliberate_mutations():
     assert not checks.same(s, replace(s, labels=["Another label"]))                    # a reference label
     assert not checks.same(s, mutate(kind="ocr"))                                      # a marker
     assert not checks.same(s, replace(s, whole=not s.whole))                           # a note
+
+
+def test_a_layout_line_beside_another_on_one_row_is_still_a_whole_line():
+    from types import SimpleNamespace as NS
+
+    unit = NS(index=1, text="Title\nLeft run of words Right run beside it", ocr_text=None, notes=None,
+              layout={"blocks": [{"lines": [{"text": "Title"}, {"text": "Left run of words"},
+                                            {"text": "Right run beside it"}]}]})
+    texts = checks.unit_texts(NS(units=[unit]))
+    assert checks.whole_unit("Left run of words", texts[1]["layout"])
+    assert not checks.whole_unit("Left run of words", texts[1]["text"])
+    assert not checks.whole_unit("run of words", texts[1]["layout"])

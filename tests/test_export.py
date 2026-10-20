@@ -66,3 +66,67 @@ def test_the_pdf_can_be_searched_for_its_words_including_ligature_pairs(tmp_path
     with pymupdf.open(final) as doc:
         for word in ("office", "files", "find", "efficient", "affine", "flows", "café"):
             assert any(page.search_for(word) for page in doc), word
+
+
+# -- H6: a failed export never leaves a file that looks finished; the readable text exports too (C14) -------------
+def test_a_write_failure_leaves_no_final_file_and_keeps_every_existing_file(tmp_path, monkeypatch):
+    taken = tmp_path / "Summary.pdf"
+    taken.write_bytes(b"the user's own file")
+
+    def disk_full(fd):
+        raise OSError(28, "No space left on device")
+    monkeypatch.setattr(export.os, "fsync", disk_full)
+    with pytest.raises(OSError):
+        export.save(present.paragraphs(summary()), taken)
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["Summary.pdf"] and taken.read_bytes() == b"the user's own file"
+
+
+def test_a_read_back_mismatch_removes_the_new_file(tmp_path, monkeypatch):
+    data = export.prepare(present.paragraphs(summary()), ".docx")
+    real = export.Path.read_bytes
+    monkeypatch.setattr(export.Path, "read_bytes", lambda self: real(self)[:16])
+    with pytest.raises(export.ExportError):
+        export.publish(data, tmp_path / "Summary.docx")
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_a_competing_writer_never_loses_its_file(tmp_path, monkeypatch):
+    data = export.prepare(present.paragraphs(summary()), ".pdf")
+    real = export.free_name
+    raced = []
+
+    def racing(path):
+        name = real(path)
+        if not raced:                       # another program takes the free name just before we create it
+            name.write_bytes(b"theirs")
+            raced.append(name)
+        return name
+    monkeypatch.setattr(export, "free_name", racing)
+    final, _ = export.publish(data, tmp_path / "Summary.pdf")
+    assert raced[0].read_bytes() == b"theirs" and final != raced[0] and final.read_bytes() == data
+
+
+def test_the_check_copy_is_made_in_the_system_temporary_folder_not_beside_the_export(tmp_path, monkeypatch):
+    made = []
+    real = export.tempfile.mkstemp
+    monkeypatch.setattr(export.tempfile, "mkstemp", lambda **kw: (made.append(kw), real(**kw))[1])
+    export.save(present.paragraphs(summary()), tmp_path / "Summary.pdf")
+    assert made and all("dir" not in kw for kw in made)
+
+
+@pytest.mark.parametrize("suffix", [".pdf", ".docx"])
+def test_the_readable_text_exports_word_for_word_with_its_marks(tmp_path, suffix):
+    from summarease.readable import Block, OCR_CAPTION
+
+    blocks = [Block("label", "Page 1", unit=1), Block("heading", "Invented heading", unit=1),
+              Block("paragraph", "A paragraph of invented words.", unit=1), Block("list", rows=["One item", "Two"], unit=1),
+              Block("table", rows=[["Cell a", "Cell b"]], unit=1), Block("note", OCR_CAPTION, unit=1),
+              Block("ocr", "Words read by OCR\nOn two lines", unit=1)]
+    paras = present.source_paragraphs(blocks)
+    final, _ = export.save(paras, tmp_path / f"Readable{suffix}")
+    export.check(final, paras)
+    text = present.as_text(paras)
+    assert OCR_CAPTION in text and "Cell a | Cell b" in text and "• One item" in text
+    for b in blocks:
+        for w in b.words():
+            assert w in text.split()

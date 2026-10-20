@@ -87,6 +87,10 @@ class Summary:
     hidden: frozenset = frozenset()
     unit: str = "page"           # what a line's unit is: page | slide | block | paragraph
     labels: list = field(default_factory=list)   # each section's name: its heading, else its unit range
+    empty: str = ""              # why nothing is shown: no_text | unusable (no line a summary can use) | none_fit
+    whole: bool = False          # a short document: every line this level could use is shown (C12)
+    tables: int = 0              # table blocks: in the Source, not summarized
+    omitted: list = field(default_factory=list)  # [(section, first unit)] with material that did not fit the budget
 
     @property
     def lines(self):
@@ -300,7 +304,8 @@ def budget(level, total):
 def build(src, level, method):
     """The summary of src at one level, from one method's order. Detailed is built first (each section's heading
     and up to 3 lines), Key points and Brief are chosen from it, and Comprehensive adds to it, so every level holds
-    the lines of the level below (C12)."""
+    the lines of the level below (C12). A level never goes over its budget, headings included: a section that does
+    not fit is left out and named in the summary (Q1, owner 2026-10-20)."""
     sections = sections_of(src)
     cands = candidates(sections, src)
     order = {"baseline": baseline, "structure": structure, "ranking": ranking}[method](sections, cands, src)
@@ -309,37 +314,60 @@ def build(src, level, method):
     native = any(l.kind != "ocr" for l in order)
     late = lambda l: l.kind == "note" or l.unit in src.hidden    # speaker notes and hidden slides: Comprehensive only
     is_head = lambda l: sections[l.section].heading is l
-    by_section = defaultdict(list)
-    for l in order:
-        if not late(l) and not is_head(l):
-            by_section[l.section].append(l)
 
-    heads = [s.heading for s in sections if s.heading and (s.lines or src.slides) and not late(s.heading)]
-    detailed = set(heads) | _rounds(by_section, rank, budget("detailed", total) - _words(heads), SECTION_LINES)
+    def groups(keep):
+        """{section: (heading still to show, its lines best first)} for the lines keep() accepts. A heading comes
+        with its section's first line; a section with no such line may show its heading alone."""
+        by_section = defaultdict(list)
+        for l in order:
+            if keep(l) and not is_head(l):
+                by_section[l.section].append(l)
+        out = {}
+        for i, s in enumerate(sections):
+            head = s.heading if s.heading and keep(s.heading) and (s.lines or src.slides) else None
+            if by_section[i] or head:
+                out[i] = (head, by_section[i] or [head])
+        return out
+
+    to_detail = groups(lambda l: not late(l))
+    detailed = _rounds(to_detail, rank, budget("detailed", total), SECTION_LINES)
     chosen = {"detailed": detailed}
     pool = [l for l in order if l in detailed and (l.kind != "heading" or src.slides)]
     chosen["key"] = _greedy(pool, budget("key", total), KEY_LINES)
     pool = [l for l in order if l in chosen["key"] and (l.kind != "ocr" or not native)]
     chosen["brief"] = _greedy(pool, budget("brief", total), BRIEF_LINES)
     limit = budget(level, total)
+    eligible = set(to_detail)
     if level == "comprehensive":
         # C12 (record 0.5): Comprehensive's budget is at least Detailed's, so it holds Detailed even below 375
         # words, where 40% of W is less than Detailed's floor.
-        limit = max(limit, budget("detailed", total), _words(detailed))
-        hidden_heads = {s.heading for s in sections if s.heading and late(s.heading)}
-        rest = defaultdict(list)
-        for l in order:
-            if l not in detailed and not is_head(l):
-                rest[l.section].append(l)
-        room = limit - _words(detailed) - _words(hidden_heads)
-        chosen["comprehensive"] = detailed | hidden_heads | _rounds(rest, rank, room, None)
+        limit = max(limit, budget("detailed", total))
+        to_add = groups(lambda l: l not in detailed)
+        eligible |= set(to_add)
+        chosen["comprehensive"] = detailed | _rounds(to_add, rank, limit - _words(detailed), None)
     shown = chosen[level]
+
+    usable = {l for l in order if level == "comprehensive" or not late(l)}
+    if level in ("detailed", "comprehensive"):
+        usable |= {s.heading for i, s in enumerate(sections) if i in eligible and s.heading
+                   and (level == "comprehensive" or not late(s.heading)) and (s.lines or src.slides)}
+    else:
+        usable = {l for l in usable if l.kind != "heading" or src.slides}
+        if level == "brief" and native:
+            usable = {l for l in usable if l.kind != "ocr"}
     gaps = next((b.rows for b in src.blocks if b.kind == "gaps"), [])
     labels = [s.heading.text if s.heading else s.label for s in sections]
-    done = lambda parts: Summary(level, method, parts, limit, total, gaps, src.hidden, src.unit, labels)
+    facts = dict(
+        empty="" if shown else "no_text" if not total else "unusable" if not cands else "none_fit",
+        whole=bool(shown) and total <= limit and usable <= shown,
+        tables=sum(b.kind == "table" for b in src.blocks),
+        omitted=[(i, sections[i].first) for i in sorted(eligible) if not any(l.section == i for l in shown)]
+        if level in ("detailed", "comprehensive") else [],
+    )
+    done = lambda parts: Summary(level, method, parts, limit, total, gaps, src.hidden, src.unit, labels, **facts)
     if level in ("brief", "key"):
         flat = Section("", None, sorted(shown, key=lambda l: l.id))
-        return done([(flat, flat.lines)])
+        return done([(flat, flat.lines)] if shown else [])
     out = []
     for i, s in enumerate(sections):
         mine = sorted((l for l in shown if l.section == i and l is not s.heading), key=lambda l: l.id)
@@ -364,20 +392,23 @@ def _greedy(pool, room, most):
     return out
 
 
-def _rounds(by_section, rank, room, most):
+def _rounds(groups, rank, room, most):
     """Round by round, each section's next best line while it fits the room (at most `most` per section); within a
-    round, the sections whose next line ranks best go first."""
-    out, nxt = set(), {s: 0 for s in by_section}
+    round, the sections whose next line ranks best go first. groups: {section: (heading, lines)}; a heading not yet
+    shown comes with its section's first line, and its words count against the room too."""
+    out, nxt = set(), {s: 0 for s in groups}
     r = 0
     while nxt and (most is None or r < most):
         r += 1
-        for s in sorted(nxt, key=lambda s: rank[by_section[s][nxt[s]].id]):
-            l = by_section[s][nxt[s]]
-            if len(l.text.split()) <= room:
-                out.add(l)
-                room -= len(l.text.split())
+        for s in sorted(nxt, key=lambda s: (rank.get(groups[s][1][nxt[s]].id, math.inf), s)):
+            head, lines = groups[s]
+            l = lines[nxt[s]]
+            take = [l] + ([head] if head and head is not l and head not in out else [])
+            if _words(take) <= room:
+                out.update(take)
+                room -= _words(take)
             nxt[s] += 1
-        nxt = {s: i for s, i in nxt.items() if i < len(by_section[s])}
+        nxt = {s: i for s, i in nxt.items() if i < len(groups[s][1])}
     return out
 
 

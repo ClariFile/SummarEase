@@ -50,7 +50,7 @@ no new milestone and changes no application API.
 - Nothing pasted is stored.
 - No document text appears in the logs.
 
-## M2 Four summary levels and the redesigned workspace (implemented; acceptance pending)
+## M2 Four summary levels and the redesigned workspace (implemented, audit fixes in; acceptance pending)
 
 **Widened by the owner on 2026-10-15:** M2 is built together with a UI redesign, all four levels (Brief, Key
 points, Detailed, Comprehensive), Copy, and Export of the summary. The methods are built and checked automatically;
@@ -93,7 +93,7 @@ tie keeps the baseline. Slides use structure under C12.
 - H7/H8 require bounded worker cleanup and partial OCR disclosure. Reader fixes follow `READER.md`; report
   limitations accurately until an upstream tagged fix is available.
 
-## M3 Readable-text Copy/Export and review (not started)
+## M3 Readable-text Copy/Export and review (built 2026-10-20 at the owner's go-ahead; review pending)
 
 - All four levels, summary Copy and summary Export were brought forward into M2; review them rather than build
   duplicates.

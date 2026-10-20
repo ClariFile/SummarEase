@@ -4,7 +4,9 @@ Usage: python -m tools.screenshots            all scalings (100%, 125%, 150%), e
        python -m tools.screenshots --scale 1.25
 
 Each scaling covers: empty, a long document with a long file name (wide and narrow, light and dark), every summary
-state (working with the last summary kept, done, another level chosen, error), gap details open, and keyboard focus.
+state (working with the last summary kept, done, another level chosen, error), gap details open, keyboard focus, and
+at 1536x864 (the owner's 1920x1080 screen at 125%): a summary line selected in the Source with Back to summary, find,
+zoom, Cancel while working, and an empty summary that says why.
 The window is drawn off screen with the native platform, so fonts and scaling are Windows' own."""
 import argparse
 import os
@@ -23,7 +25,7 @@ LONG_NAME = "An invented handbook with a very long file name that goes on and on
 def run(scale):
     os.environ["QT_SCALE_FACTOR"] = scale
     os.environ["CLASSIFILE_OCR"] = "off"     # the pictures here are not part of the review
-    from PySide6.QtCore import Qt
+    from PySide6.QtCore import Qt, QUrl
     from PySide6.QtTest import QTest
     from PySide6.QtWidgets import QApplication
 
@@ -91,6 +93,30 @@ def run(scale):
     shot("13-keyboard-focus-summarize")
     w.level.setFocus(Qt.TabFocusReason)
     shot("14-keyboard-focus-level", theme="dark")
+    w.open_file(text_pdf)
+    wait(lambda: w.read_job is None)
+    summarize("detailed")
+    line = w.summary.lines[len(w.summary.lines) // 2]
+    for theme in ("light", "dark"):
+        w.resize(1536, 864)
+        w.apply_theme(theme)        # before the link: a new theme draws the text again, without the selection
+        QTest.qWait(30)
+        w.follow(QUrl(f"#l{line.id}"), "summary")
+        shot("15-line-selected-back-to-summary", (1536, 864), theme)
+    w.find_field.setText("model")
+    w.find_next()
+    w.find_field.setFocus(Qt.TabFocusReason)
+    shot("16-find-in-source", (1536, 864))
+    w.set_zoom(1)
+    w.set_zoom(1)
+    shot("17-zoomed-120", (1536, 864), "dark")
+    w.set_zoom(0)
+    w.start_summary()
+    shot("18-working-cancel-shown", (1536, 864))
+    w.cancel_work()
+    w.paste_text(" ".join(["word"] * 199) + " end.")
+    summarize("brief")
+    shot("19-empty-summary-says-why", (1536, 864))
     w.close()
 
 

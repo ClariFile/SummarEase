@@ -247,7 +247,7 @@ def to_html(blocks, t, details=False):
         elif b.kind == "gaps":
             out.append(gaps_html(b, t, details))
         elif b.kind in ("title", "heading"):
-            size = tk.TEXT_TITLE if b.level == 1 else tk.TEXT_HEADING if b.level == 2 else tk.TEXT_READING + 1
+            size = tk.DOC_TITLE if b.level == 1 else tk.DOC_HEADING if b.level == 2 else tk.TEXT_READING + 1
             out.append(f'<p style="margin-top:{tk.GROUP}px; margin-bottom:{tk.RELATED}px; font-size:{size}px; '
                        f'font-weight:{tk.WEIGHT_STRONG};">{e}</p>')
         elif b.kind == "ocr":

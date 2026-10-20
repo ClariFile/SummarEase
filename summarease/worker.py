@@ -1,5 +1,7 @@
 """Heavy work runs in a worker process with a time limit (DOS_AND_DONTS.md): a crash, a hang or a timeout is an
-operational failure, reported plainly, never a result. The workers only read; they write no file."""
+operational failure, reported plainly, never a result. The workers only read; the one file a worker writes is an
+export's temporary check copy, in the system's temporary folder (export.prepare). Waiting on a worker is always
+bounded: a worker that sends its result and then hangs is stopped, so the window never waits for it."""
 import hashlib
 import multiprocessing as mp
 import time
@@ -9,6 +11,7 @@ from .reader import ReadResult, read_document
 TIME_LIMIT = 300    # seconds per file; the reader's own OCR budget (240 s) fits inside it
 TIMED_OUT = "it took longer than the time limit"
 STOPPED = "the worker stopped unexpectedly"
+JOIN_LIMIT = 2      # seconds a worker gets to exit after its result, or after it is killed
 BOLD = 16           # PyMuPDF span flag
 
 
@@ -85,5 +88,8 @@ class Job:
         self._finish()
 
     def _finish(self):
-        self._proc.join()
+        self._proc.join(JOIN_LIMIT)
+        if self._proc.is_alive():
+            self._proc.kill()
+            self._proc.join(JOIN_LIMIT)
         self._conn.close()

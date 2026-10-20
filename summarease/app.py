@@ -1,28 +1,31 @@
 """The SummarEase window. Run: python -m summarease.app
 
-A compact header (the app, the document's name, Open and Paste), then the workspace: the Source pane (the readable
-text) and the Summary pane (the detail level, Summarize, Copy and Export), side by side and resizable, or as two tabs
-on a narrow window. Reading and summarizing run in worker processes (worker.py); the window polls them and is updated
-in place. Pasted text stays in memory (record C9). Logs carry counts and fixed reasons only: never document text or
+A compact header (the app, the document's name, Open, Paste, Help, and Cancel while work runs), then the workspace:
+the Source pane (find, Copy and Export of the readable text, the text itself) and the Summary pane (the detail level,
+Summarize, Copy and Export), side by side and resizable, or as two tabs on a narrow window. Reading, summarizing and
+building an export run in worker processes (worker.py); the window polls them and is updated in place. Pasted text stays in memory (record C9). Logs carry counts and fixed reasons only: never document text or
 file names."""
 import ctypes
 import logging
 import multiprocessing
+import re
 import sys
 import time
 from pathlib import Path
 
-from PySide6.QtCore import QStandardPaths, Qt, QTimer
-from PySide6.QtGui import QColor, QFont, QFontMetrics, QGuiApplication, QIcon, QKeySequence, QPalette, QShortcut
+from PySide6.QtCore import QRegularExpression, QStandardPaths, Qt, QTimer
+from PySide6.QtGui import (
+    QColor, QFont, QFontMetrics, QGuiApplication, QIcon, QKeySequence, QPalette, QShortcut, QTextDocument,
+)
 from PySide6.QtWidgets import (
-    QApplication, QComboBox, QFileDialog, QFrame, QHBoxLayout, QLabel, QMainWindow, QPushButton, QSplitter,
-    QStackedWidget, QTabWidget, QTextBrowser, QVBoxLayout, QWidget,
+    QApplication, QComboBox, QFileDialog, QFrame, QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox,
+    QPushButton, QSplitter, QStackedWidget, QTabWidget, QTextBrowser, QVBoxLayout, QWidget,
 )
 
 from . import export, present
 from . import tokens as tk
 from .readable import DETAILS, from_record, from_text, to_html
-from .reader import READERS
+from .reader import READERS, ocr
 from .summarize import (
     DEFAULT_LEVEL, LEVEL_HINTS, LEVEL_NAMES, LEVELS, source_from_record, source_from_text, summarize,
 )
@@ -31,11 +34,23 @@ from .worker import Job, call, read
 ICON = Path(__file__).resolve().parent.parent / "assets" / "icons" / "summarease" / "summarease.ico"
 POLL_MS = 100
 SUMMARIZE_LIMIT = 120   # seconds
+EXPORT_LIMIT = 300      # seconds to build and check an export
+ZOOM_STEP, ZOOM_MIN, ZOOM_MAX = 0.1, 0.8, 2.0     # text zoom of both reading panes
 FORMATS = "PDF, PPTX, DOCX and ODT"
 EMPTY_SOURCE = f"Open a document ({FORMATS}) or paste text. Nothing you paste is stored."
 EMPTY_SUMMARY = "Open a document or paste text, then press Summarize."
 READY_SUMMARY = "Choose a detail level and press Summarize."
 log = logging.getLogger("summarease")
+HELP = """<p><b>SummarEase</b> summarizes documents and pasted text on this computer. It makes no network
+connections: nothing you open or paste leaves the computer.</p>
+<p>Every summary line is taken word for word from the document, with a link to where it is. Your documents are only
+read, never changed. Pasted text is kept in memory only. Copy and Export make nothing unless you ask: an export is a
+new file, saved where you choose, and never replaces a file.</p>
+<p>OCR (reading text in pictures): {ocr}. Text read by OCR is marked, and what couldn't be read is said.</p>
+<p><b>Keys</b><br>Ctrl+O open · Ctrl+V paste · Ctrl+F find in the source · Enter / Shift+Enter next / previous
+match<br>Ctrl+= / Ctrl+- / Ctrl+0 text size · Esc cancel the work in progress</p>
+<p><b>Licences</b><br>SummarEase is free software under the GNU Affero General Public License, version 3. It uses
+PyMuPDF (GNU AGPL 3), Qt for Python (PySide6, GNU LGPL 3) and Tesseract OCR (Apache 2.0).</p>"""
 
 
 def style_sheet(t):
@@ -62,7 +77,10 @@ QPushButton#primary {{ background: {t['primary']}; color: {t['on_primary']}; bor
 QPushButton#primary:hover {{ background: {t['primary_hover']}; border-color: {t['primary_hover']}; }}
 QPushButton#primary:disabled {{ background: {t['disabled_fill']}; color: {t['disabled']};
                                 border-color: {t['disabled_fill']}; }}
-QPushButton:focus, QComboBox:focus {{ border: {tk.HAIR + 1}px solid {t['accent']}; }}
+QLineEdit {{ border: {tk.HAIR}px solid {t['control']}; border-radius: {tk.RADIUS_CONTROL}px; background: {t['base']};
+             padding: {tk.RELATED - tk.HAIR}px {tk.RELATED + tk.TIGHT}px; min-height: {tk.CONTROL_TEXT}px;
+             selection-background-color: {t['selection']}; selection-color: {t['text']}; }}
+QPushButton:focus, QComboBox:focus, QLineEdit:focus {{ border: {tk.HAIR + 1}px solid {t['accent']}; }}
 QComboBox {{ border: {tk.HAIR}px solid {t['control']}; border-radius: {tk.RADIUS_CONTROL}px; background: {t['base']};
              padding: {tk.RELATED - tk.HAIR}px {tk.RELATED + tk.TIGHT}px; min-height: {tk.CONTROL_TEXT}px; }}
 QComboBox:hover {{ background: {t['hover']}; }}
@@ -130,12 +148,16 @@ class ReadingView(QTextBrowser):
         font = QFont(tk.FONT)
         font.setPixelSize(tk.TEXT_READING)
         sample = "the quick brown fox jumps over the lazy dog "     # the width of ordinary text, per character
-        self.column = round(QFontMetrics(font).horizontalAdvance(sample) / len(sample) * tk.READING_CHARS)
+        self.base_column = self.column = round(QFontMetrics(font).horizontalAdvance(sample) / len(sample)
+                                               * tk.READING_CHARS)
+        self.zoom = 1.0
 
     def set_html(self, html, keep_scroll=False):
+        """Show html, every text size scaled by the zoom; the column scales with it, so lines keep READING_CHARS."""
         bar = self.verticalScrollBar()
         at = bar.value()
-        self.setHtml(html)
+        self.column = round(self.base_column * self.zoom)
+        self.setHtml(re.sub(r"font-size:\s*(\d+)px", lambda m: f"font-size:{round(int(m[1]) * self.zoom)}px", html))
         self._fit()
         bar.setValue(at if keep_scroll else 0)
 
@@ -211,8 +233,11 @@ class MainWindow(QMainWindow):
         self.theme = None
         self.blocks, self.source, self.name = [], None, None       # what the Source pane shows
         self.summary, self.summary_state = None, "idle"              # idle | working | error
-        self.read_job = self.sum_job = None
+        self.read_job = self.sum_job = self.export_job = None
+        self.exporting = None                                       # (path, "summary" | "source") being built
         self.reading = None
+        self.source_info = ""                                       # the Source pane's status for this document
+        self.return_to = None                                       # the summary's scroll position before a link
         self.details = {"source": False, "summary": False}         # gap details open
 
         # header
@@ -222,20 +247,47 @@ class MainWindow(QMainWindow):
         self.paste_button.setToolTip("Show the text on the clipboard. It is not stored.")
         self.paste_button.clicked.connect(lambda: self.paste_text())
         self.doc_label = ElidedLabel("docname")
+        self.cancel_button = QPushButton("Cancel")
+        self.cancel_button.setToolTip("Stop the work in progress (Esc). What is shown stays.")
+        self.cancel_button.clicked.connect(self.cancel_work)
+        self.cancel_button.hide()
+        self.help_button = QPushButton("Help")
+        self.help_button.clicked.connect(self.show_help)
         header = QHBoxLayout()
         header.setSpacing(tk.RELATED)
         header.addWidget(label("SummarEase", "brand"))
         header.addSpacing(tk.GROUP)
         header.addWidget(self.doc_label, 1)
         header.addSpacing(tk.GROUP)
+        header.addWidget(self.cancel_button)
         header.addWidget(self.open_button)
         header.addWidget(self.paste_button)
+        header.addWidget(self.help_button)
 
         # Source pane
         self.source_status = label("", "secondary")
         self.source_view = ReadingView("Source text")
         self.source_view.anchorClicked.connect(lambda url: self.follow(url, "source"))
-        self.source_pane = pane("SOURCE", self.source_view, beside=[self.source_status])
+        self.find_field = QLineEdit()
+        self.find_field.setPlaceholderText("Find in source")
+        self.find_field.setAccessibleName("Find in source")
+        self.find_field.setClearButtonEnabled(True)
+        self.find_field.returnPressed.connect(lambda: self.find_next())
+        self.back_button = QPushButton("Back to summary")
+        self.back_button.clicked.connect(self.back_to_summary)
+        self.back_button.hide()
+        self.source_copy = QPushButton("Copy")
+        self.source_copy.setAccessibleName("Copy the readable text")
+        self.source_copy.clicked.connect(self.copy_source)
+        self.source_export = QPushButton("Export…")
+        self.source_export.setAccessibleName("Export the readable text")
+        self.source_export.clicked.connect(self.export_source)
+        find_row = QHBoxLayout()
+        find_row.setSpacing(tk.RELATED)
+        find_row.addWidget(self.find_field, 1)
+        find_row.addWidget(self.back_button)
+        self.source_pane = pane("SOURCE", self.source_view, beside=[self.source_status],
+                                right=[self.source_copy, self.source_export], rows=[find_row])
 
         # Summary pane
         self.level = QComboBox()
@@ -250,8 +302,10 @@ class MainWindow(QMainWindow):
         self.summarize_button.setObjectName("primary")
         self.summarize_button.clicked.connect(self.start_summary)
         self.copy_button = QPushButton("Copy")
+        self.copy_button.setAccessibleName("Copy the summary")
         self.copy_button.clicked.connect(self.copy_summary)
         self.export_button = QPushButton("Export…")
+        self.export_button.setAccessibleName("Export the summary")
         self.export_button.clicked.connect(self.export_summary)
         self.hint = label("", "hint")
         self.notice = label("", "notice")
@@ -293,13 +347,21 @@ class MainWindow(QMainWindow):
         page.setObjectName("page")
         page.setLayout(column)
         self.setCentralWidget(page)
-        order = (self.open_button, self.paste_button, self.source_view, self.copy_button, self.export_button,
-                 self.level, self.summarize_button, self.summary_view)         # the screen's order
+        order = (self.cancel_button, self.open_button, self.paste_button, self.help_button, self.source_copy,
+                 self.source_export, self.find_field, self.back_button, self.source_view, self.copy_button,
+                 self.export_button, self.level, self.summarize_button, self.summary_view)    # the screen's order
         for a, b in zip(order, order[1:]):
             QWidget.setTabOrder(a, b)
 
         QShortcut(QKeySequence.Paste, self, lambda: self.paste_text())
         QShortcut(QKeySequence.Open, self, self.choose_file)
+        QShortcut(QKeySequence.Find, self, self.focus_find)
+        QShortcut(QKeySequence("Shift+Return"), self.find_field, lambda: self.find_next(backward=True),
+                  context=Qt.WidgetShortcut)
+        QShortcut(QKeySequence(Qt.Key_Escape), self, self.cancel_work)
+        for keys, step in ((QKeySequence.ZoomIn, 1), (QKeySequence("Ctrl+="), 1), (QKeySequence.ZoomOut, -1),
+                           (QKeySequence("Ctrl+0"), 0)):
+            QShortcut(keys, self, lambda step=step: self.set_zoom(step))
         self.timer = QTimer(self, interval=POLL_MS)
         self.timer.timeout.connect(self._poll)
         QGuiApplication.styleHints().colorSchemeChanged.connect(lambda *_: self.apply_theme())
@@ -354,6 +416,7 @@ class MainWindow(QMainWindow):
         html = to_html(self.blocks, tk.THEMES[self.theme], self.details["source"]) if self.blocks \
             else self._placeholder(EMPTY_SOURCE)
         self.source_view.set_html(html, keep_scroll)
+        self._anchors = None
 
     def render_summary(self, keep_scroll=False):
         if self.summary:
@@ -379,6 +442,7 @@ class MainWindow(QMainWindow):
         self.read_job = Job(read, str(path))
         self.reading = path.name
         self.source_status.setText("Reading…")
+        self.refresh_buttons()
         self.timer.start()
 
     def paste_text(self, text=None):
@@ -405,7 +469,9 @@ class MainWindow(QMainWindow):
         self.details = {"source": False, "summary": False}
         self.doc_label.set_full(name)
         self.setWindowTitle(f"{name} - SummarEase")
+        self.source_info = status
         self.source_status.setText(status)
+        self.back_button.hide()
         self.render_source()
         self.render_summary()
         self.refresh_summary_controls()
@@ -433,8 +499,7 @@ class MainWindow(QMainWindow):
         level = self.chosen_level()
         self.hint.setText(LEVEL_HINTS[level])
         self.summarize_button.setEnabled(self.source is not None and self.summary_state != "working")
-        self.copy_button.setEnabled(self.summary is not None)
-        self.export_button.setEnabled(self.summary is not None)
+        self.refresh_buttons()
         state = self.summary_state
         if state == "working":
             text = f"Summarizing ({LEVEL_NAMES[self.working_level]})…" + (" The last summary stays until it is ready."
@@ -444,6 +509,8 @@ class MainWindow(QMainWindow):
         elif self.summary and self.summary.level != level:
             text = (f"This is the {LEVEL_NAMES[self.summary.level]} summary. "
                     f"Press Summarize for {LEVEL_NAMES[level]}.")
+        elif self.summary and self.summary.empty:
+            text = f"{LEVEL_NAMES[self.summary.level]}: no lines. The summary says why."
         elif self.summary:
             n = len(self.summary.lines)
             text = (f"{LEVEL_NAMES[self.summary.level]}: {n} line{'s' * (n != 1)}, {self.summary.words} of "
@@ -469,41 +536,196 @@ class MainWindow(QMainWindow):
             QGuiApplication.clipboard().setText(present.as_text(self.summary))
             self.notice.setText(f"Copied the {LEVEL_NAMES[self.summary.level]} summary.")
 
+    def copy_source(self):
+        """The readable text, as shown (record C5, C6), with SummarEase's marks: OCR, notes, what couldn't be read."""
+        if self.blocks:
+            QGuiApplication.clipboard().setText(present.as_text(present.source_paragraphs(self.blocks)))
+            self.source_status.setText("Copied the readable text.")
+
     def export_summary(self):
-        if not self.summary:
-            return
+        if self.summary:
+            self._export("summary", f"Export the {LEVEL_NAMES[self.summary.level]} summary",
+                         f"{LEVEL_NAMES[self.summary.level]} summary")
+
+    def export_source(self):
+        if self.blocks:
+            self._export("source", "Export the readable text", "Readable text")
+
+    def _export(self, what, title, suffix):
         folder = QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation)
         stem = Path(self.name).stem if self.name and self.source and self.source.unit != "paragraph" else "Pasted text"
-        default = str(Path(folder) / f"{stem} - {LEVEL_NAMES[self.summary.level]} summary.pdf")
-        path, _ = QFileDialog.getSaveFileName(self, "Export summary", default,
+        path, _ = QFileDialog.getSaveFileName(self, title, str(Path(folder) / f"{stem} - {suffix}.pdf"),
                                               "PDF (*.pdf);;Word document (*.docx)",
                                               options=QFileDialog.DontConfirmOverwrite)
         if path:
-            self.export_to(path)
+            self.export_to(path, what)
 
-    def export_to(self, path):
-        """Save the summary as a new file; a taken name gets a number, so nothing is overwritten."""
+    def refresh_buttons(self):
+        """Copy and Export of each pane, and Cancel, for what is shown and what runs."""
+        self.copy_button.setEnabled(self.summary is not None)
+        self.export_button.setEnabled(self.summary is not None and not self.export_job)
+        self.source_copy.setEnabled(bool(self.blocks))
+        self.source_export.setEnabled(bool(self.blocks) and not self.export_job)
+        self.cancel_button.setVisible(any((self.read_job, self.sum_job, self.export_job)))
+
+    def tell(self, what, text):
+        (self.notice if what == "summary" else self.source_status).setText(text)
+
+    def export_to(self, path, what="summary"):
+        """Build and check a new file in a worker (the window stays responsive), then save it here: a taken name
+        gets a number, so nothing is overwritten."""
+        if self.export_job:
+            return
+        kind = Path(path).suffix.lower()
+        if kind not in (".pdf", ".docx"):
+            self.tell(what, "Couldn't export: SummarEase exports PDF and Word (.docx) files.")
+            return
+        paras = present.paragraphs(self.summary) if what == "summary" else present.source_paragraphs(self.blocks)
+        self.export_job = Job(call, export.prepare, paras, kind, time_limit=EXPORT_LIMIT)
+        self.exporting = (Path(path), what)
+        self.tell(what, "Exporting…")
+        self.refresh_buttons()
+        self.timer.start()
+
+    def _export_done(self, outcome):
+        (path, what), self.exporting = self.exporting, None
+        state, value = outcome
         try:
-            final, _ = export.save(present.paragraphs(self.summary), path)
+            if state != "ok":
+                raise export.ExportError("the new file did not pass its check" if value == "ExportError" else value)
+            final, _ = export.publish(value, path)
         except (export.ExportError, OSError) as e:
             reason = str(e) if isinstance(e, export.ExportError) else "the file could not be written there"
-            self.notice.setText(f"Couldn't export: {reason}.")
+            self.tell(what, f"Couldn't export: {reason}. Nothing was saved.")
             log.info("export failed: %s", type(e).__name__)
             return None
-        renamed = "" if Path(final) == Path(path) else " That name was taken, so a number was added."
-        self.notice.setText(f"Exported as {Path(final).name}.{renamed}")
-        log.info("exported %s", Path(final).suffix)
+        renamed = "" if final == path else " That name was taken, so a number was added."
+        self.tell(what, f"Exported as {final.name}.{renamed}")
+        log.info("exported %s %s", what, final.suffix)
         return final
 
+    def cancel_work(self):
+        """Stop whatever runs. What is shown stays: the last summary, the open document."""
+        if self.read_job:
+            self.read_job.cancel()
+            self.read_job = None
+            self.source_status.setText(f"Stopped reading. {self.source_info}".strip())
+        if self.sum_job:
+            self.sum_job.cancel()
+            self.sum_job = None
+            self.summary_state = "idle"
+            self.refresh_summary_controls()
+            self.notice.setText("Stopped." + (" The last summary is still shown." if self.summary else ""))
+        if self.export_job:
+            self.export_job.cancel()
+            what = self.exporting[1]
+            self.export_job = self.exporting = None
+            self.tell(what, "Export stopped. Nothing was saved.")
+        self.refresh_buttons()
+
+    def show_help(self):
+        box = QMessageBox(self)
+        box.setWindowTitle("Help and about SummarEase")
+        box.setTextFormat(Qt.RichText)
+        box.setText(HELP.format(ocr="available" if ocr.tessdata() else "not installed, so text in pictures is "
+                                                                         "listed as not read"))
+        box.exec()
+
+    # -- source: find, zoom, links --------------------------------------------------------------------------------
+    def focus_find(self):
+        if self.narrow:
+            self.tabs.setCurrentWidget(self.source_pane)
+        self.find_field.setFocus()
+        self.find_field.selectAll()
+
+    def find_next(self, backward=False):
+        """The next (or previous) match in the Source, from where the last one was; at the end it starts again."""
+        text = self.find_field.text().strip()
+        if not text:
+            return False
+        view = self.source_view
+        flags = QTextDocument.FindBackward if backward else QTextDocument.FindFlag(0)
+        if not view.find(text, flags):
+            cursor = view.textCursor()
+            cursor.movePosition(cursor.MoveOperation.End if backward else cursor.MoveOperation.Start)
+            view.setTextCursor(cursor)
+            if not view.find(text, flags):
+                self.source_status.setText("No match in the source.")
+                return False
+        self.source_status.setText(self.source_info)
+        return True
+
+    def set_zoom(self, step):
+        """Text size of both reading panes: step 1 larger, -1 smaller, 0 back to normal."""
+        zoom = 1.0 if step == 0 else min(ZOOM_MAX, max(ZOOM_MIN, self.source_view.zoom + step * ZOOM_STEP))
+        for view in (self.source_view, self.summary_view):
+            view.zoom = round(zoom, 2)
+        self.render_source(keep_scroll=True)
+        self.render_summary(keep_scroll=True)
+
+    def anchors(self):
+        """{anchor name: position} in the Source pane's text, found once per rendering."""
+        if self._anchors is not None:
+            return self._anchors
+        out, block = {}, self.source_view.document().begin()
+        while block.isValid():
+            for name in block.charFormat().anchorNames():      # an anchor before a paragraph sits on its block
+                out.setdefault(name, block.position())
+            it = block.begin()
+            while not it.atEnd():
+                frag = it.fragment()
+                for name in frag.charFormat().anchorNames():
+                    out.setdefault(name, frag.position())
+                it += 1
+            block = block.next()
+        self._anchors = out
+        return out
+
+    def show_line(self, line):
+        """Scroll the Source to a summary line and select it there: that occurrence, in its own page, slide or
+        paragraph, not the first match elsewhere. If the text can't be found as shown, scroll to its unit."""
+        view = self.source_view
+        view.scrollToAnchor(f"u{line.unit}")
+        anchors = self.anchors()
+        start = anchors.get(f"u{line.unit}")
+        if start is None:
+            return False
+        later = [p for p in anchors.values() if p > start]
+        words = r"\s+".join(QRegularExpression.escape(w) for w in line.text.split())
+        found = view.document().find(QRegularExpression(words, QRegularExpression.UseUnicodePropertiesOption), start)
+        if found.isNull() or (later and found.selectionStart() >= min(later)):
+            return False
+        view.setTextCursor(found)
+        view.ensureCursorVisible()
+        return True
+
+    def back_to_summary(self):
+        if self.narrow:
+            self.tabs.setCurrentWidget(self.summary_pane)
+        if self.return_to is not None:
+            self.summary_view.verticalScrollBar().setValue(self.return_to)
+        self.summary_view.setFocus()
+        self.back_button.hide()
+
     def follow(self, url, where):
-        """A link: "#gap-details" opens or closes that pane's gap details; "#u<n>" shows unit n in the Source."""
+        """A link: "#gap-details" opens or closes that pane's gap details; "#l<id>" shows and selects that summary
+        line in the Source; "#u<n>" shows unit n in the Source."""
         anchor = url.toString()
         if anchor == DETAILS:
             self.details[where] = not self.details[where]
             (self.render_source if where == "source" else self.render_summary)(keep_scroll=True)
+            return
+        if not anchor.startswith(("#u", "#l")):
+            return
+        if self.narrow:
+            self.tabs.setCurrentWidget(self.source_pane)
+        if where == "summary":
+            self.return_to = self.summary_view.verticalScrollBar().value()
+            self.back_button.show()
+        line = next((l for l in self.summary.lines if f"#l{l.id}" == anchor), None) if self.summary else None
+        if line:
+            self.show_line(line)
         elif anchor.startswith("#u"):
-            if self.narrow:
-                self.tabs.setCurrentWidget(self.source_pane)
             self.source_view.scrollToAnchor(anchor[1:])
 
     # -- workers --------------------------------------------------------------------------------------------------
@@ -514,8 +736,12 @@ class MainWindow(QMainWindow):
         if self.sum_job and (res := self.sum_job.poll()) is not None:
             self._summary_done(res, time.monotonic() - self.sum_job.started)
             self.sum_job = None
-        if not self.read_job and not self.sum_job:
+        if self.export_job and (res := self.export_job.poll()) is not None:
+            self.export_job = None
+            self._export_done(res)
+        if not self.read_job and not self.sum_job and not self.export_job:
             self.timer.stop()
+        self.refresh_buttons()
 
     def _read_done(self, outcome, seconds):
         state, value = outcome
@@ -547,7 +773,7 @@ class MainWindow(QMainWindow):
         self.refresh_summary_controls()
 
     def closeEvent(self, e):
-        for job in (self.read_job, self.sum_job):
+        for job in (self.read_job, self.sum_job, self.export_job):
             if job:
                 job.cancel()
         super().closeEvent(e)

@@ -61,3 +61,21 @@ def test_a_worker_that_crashes_is_reported(tmp_path):
 
 def test_a_function_that_raises_reports_only_the_error_type():
     assert wait(Job(call, int, "not a number with private words")) == ("failed", "ValueError")
+
+
+def _send_then_hang(conn, path):
+    conn.send(("ok", "result"))
+    threading.Event().wait()
+
+
+def test_a_worker_that_sends_its_result_and_hangs_is_stopped_without_blocking(tmp_path):
+    job = Job(_send_then_hang, str(make_pdf(tmp_path / "a.pdf")))
+    start = time.monotonic()
+    assert wait(job) == ("ok", "result")
+    assert not job._proc.is_alive() and time.monotonic() - start < LIMIT
+
+
+def test_cancel_reaps_the_worker(tmp_path):
+    job = Job(_hang, str(make_pdf(tmp_path / "a.pdf")))
+    job.cancel()
+    assert not job._proc.is_alive()

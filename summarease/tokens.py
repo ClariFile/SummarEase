@@ -1,6 +1,9 @@
 """Design tokens: every colour and size of the interface is named here, once. The structure follows ClassiFile's
-tokens (one dictionary per theme, the same role names), with violet (#6C47FF) where ClassiFile has teal
-(record C11). tests/test_theme.py checks the contrast of every pair the interface puts together.
+tokens (one dictionary per theme, the same role names). The ClariFile suite's colours over neutral greys, nothing
+more: violet, SummarEase's own, the SummarEase icon's colour (#6C47FF, record C11), where ClassiFile has teal; amber
+(what couldn't be read, warnings); red (errors only). The greys, amber, red, font, text sizes, spacing and radii are
+the suite's, kept equal to ClassiFile's (classifile/app/tokens.py): tests/test_theme.py compares them with a table
+copied from ClassiFile, and checks the contrast of every pair the interface puts together.
 Violet appears only on the primary button, the focus outline, the selection and links; everything else is grey."""
 
 THEMES = {
@@ -21,11 +24,10 @@ THEMES = {
         "selection": "#E9E4FF",     # selected text: a faint violet tint
         "hover": "#EAEEF2",         # a grey change, never violet
         "pressed": "#E2E6EB",
-        "notice": "#EEF1F4",        # behind OCR text
+        "notice": "#E8EDF2",        # behind OCR text
         "disabled_fill": "#E5E7EB",
         "amber": "#AA4F09",         # what couldn't be read
         "red": "#B91C1C",           # errors
-        "green": "#14793A",
     },
     "dark": {                       # neutral charcoal: no tint in the backgrounds
         "window": "#1C1E21",
@@ -44,11 +46,10 @@ THEMES = {
         "selection": "#38324F",
         "hover": "#2A2E33",
         "pressed": "#33373D",
-        "notice": "#2A2D32",
+        "notice": "#272A2F",
         "disabled_fill": "#2E3238",
         "amber": "#D29922",
         "red": "#EA756F",
-        "green": "#57AB5A",
     },
 }
 VIOLET = "#6C47FF"
@@ -59,9 +60,11 @@ TEXT_CAPTION = 12
 TEXT_SECONDARY = 13
 TEXT_BODY = 14
 TEXT_READING = 15       # the readable text itself
-TEXT_HEADING = 18
+TEXT_HEADING = 16       # the application's own headings (the app's name)
 TEXT_TITLE = 22
 WEIGHT_STRONG = 600
+DOC_TITLE = 22          # the document's own headings in the reading panes: document typography, not the suite's
+DOC_HEADING = 18
 
 # -- spacing and sizes ----------------------------------------------------------------------------------------
 PAD = 24

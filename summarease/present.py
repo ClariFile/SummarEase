@@ -9,6 +9,15 @@ from .summarize import LEVEL_NAMES
 
 NOTE = "Every line is taken word for word from the document; the reference after it says where."
 LINK_CHARS = 32     # a section name used as a reference is shortened beyond this
+EMPTY = {
+    "no_text": "No text was read from this document, so there is nothing to summarize.",
+    "unusable": "The readable text has no sentence, bullet or line a summary can use. It is all in the Source.",
+    "none_fit": "No whole line fits this level's length, and lines are never cut short. A higher level may show more.",
+}
+WHOLE = "This document is short, so this level shows every line it can use."
+TABLES = "Tables are not summarized; they are in the Source."
+SOURCE_TITLE = "Readable text"
+SOURCE_NOTE = "The document's words as SummarEase read them, laid out for reading. Nothing is reworded."
 
 
 def where(summary, line):
@@ -32,6 +41,25 @@ def mark(summary, line):
     return ""
 
 
+def notes(summary):
+    """SummarEase's notes about this summary, in order: why it is empty, what it leaves out, a short document."""
+    out = [EMPTY[summary.empty]] if summary.empty else []
+    if summary.omitted:
+        n = len(summary.omitted)
+        out.append(f"{n} section{'s' * (n > 1)} didn't fit this level's length: "
+                   + "; ".join(omitted_name(summary, i, u) for i, u in summary.omitted) + ".")
+    if summary.whole:
+        out.append(WHOLE)
+    if summary.tables:
+        out.append(TABLES)
+    return out
+
+
+def omitted_name(summary, section, unit):
+    label = summary.labels[section]
+    return label if summary.unit not in ("page", "slide") else f"{label} ({'p.' if summary.unit == 'page' else 'slide'} {unit})"
+
+
 def paragraphs(summary):
     """[(style, text)] in reading order. Styles: title, note, gap, section, item. The document's words are in the
     section and item texts; everything else is SummarEase's."""
@@ -39,6 +67,7 @@ def paragraphs(summary):
     if summary.gaps:
         out.append(("gap", gap_line(summary)))
         out += [("gap", detail) for _, detail in summary.gaps]
+    out += [("note", n) for n in notes(summary)]
     for section, lines in summary.sections:
         head = section.heading if section.heading in lines else None
         if summary.level in ("detailed", "comprehensive"):
@@ -63,14 +92,35 @@ def gap_line(summary):
     return f"Some pictures couldn't be read: {n} {unit}{'s' * (n > 1)}."
 
 
-def as_text(summary):
-    """For Copy: plain text, one paragraph per line."""
-    return "\n".join(t for _, t in paragraphs(summary)) + "\n"
+def as_text(summary_or_paras):
+    """For Copy: plain text, one paragraph per line, of a summary or of [(style, text)]."""
+    paras = summary_or_paras if isinstance(summary_or_paras, list) else paragraphs(summary_or_paras)
+    return "\n".join(t for _, t in paras) + "\n"
+
+
+def source_paragraphs(blocks):
+    """The readable text (record C5, C14) as [(style, text)] for Copy and Export: every word of the view, in its
+    order, with SummarEase's own labels and marks. A table row's cells are joined by " | " (layout only)."""
+    out = [("title", SOURCE_TITLE), ("note", SOURCE_NOTE)]
+    for b in blocks:
+        if b.kind == "gaps":
+            out += [("gap", b.text)] + [("gap", d) for _, d in b.rows]
+        elif b.kind in ("label", "note", "gap"):
+            out.append((b.kind, b.text))
+        elif b.kind in ("title", "heading"):
+            out.append(("section", b.text))
+        elif b.kind == "list":
+            out += [("item", f"{'' if LIST_MARK.match(i) else '• '}{i}") for i in b.rows]
+        elif b.kind == "table":
+            out += [("body", " | ".join(r)) for r in b.rows]
+        else:   # paragraph, lines, ocr, notes: a line break in the reader's text starts a new paragraph
+            out += [("body", line) for line in b.text.split("\n") if line.strip()]
+    return out
 
 
 def to_html(summary, t, details=False):
-    """The summary pane: each line with a link to where it comes from ("#u<unit>" in the Source pane)."""
-    link = lambda l: (f' <a href="#u{l.unit}" style="color:{t["link"]}; font-size:{tk.TEXT_CAPTION}px; '
+    """The summary pane: each line with a link to where it comes from ("#l<line id>": that line in the Source pane)."""
+    link = lambda l: (f' <a href="#l{l.id}" style="color:{t["link"]}; font-size:{tk.TEXT_CAPTION}px; '
                       f'text-decoration:none;">{escape(where(summary, l)).replace(" ", "&nbsp;")}</a>')   # never split "p. 3"
     tag = lambda l: (f'<span style="color:{t["secondary"]}; font-size:{tk.TEXT_CAPTION}px;">{escape(mark(summary, l))}'
                      f'</span> ' if mark(summary, l) else "")
@@ -85,6 +135,15 @@ def to_html(summary, t, details=False):
                        f'font-size:{tk.TEXT_SECONDARY}px;">' + "".join(
                            f'<li><a href="#u{u}" style="color:{t["link"]};">{escape(d)}</a></li>' for u, d in summary.gaps)
                        + "</ul>")
+    note = f'<p style="margin-top:0; margin-bottom:{tk.RELATED}px; color:{t["secondary"]}; font-size:{tk.TEXT_SECONDARY}px;">'
+    for n in notes(summary):
+        if summary.omitted and n.startswith(f"{len(summary.omitted)} section"):
+            n = escape(n.split(": ", 1)[0]) + ": " + "; ".join(
+                f'<a href="#u{u}" style="color:{t["link"]};">{escape(omitted_name(summary, i, u))}</a>'
+                for i, u in summary.omitted) + "."
+        else:
+            n = escape(n)
+        out.append(note + n + "</p>")
     sectioned = summary.level in ("detailed", "comprehensive")
     for section, lines in summary.sections:
         head = section.heading if section.heading in lines else None

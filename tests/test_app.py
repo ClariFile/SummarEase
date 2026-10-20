@@ -133,7 +133,7 @@ def test_a_link_in_the_summary_scrolls_the_source_there(window, tmp_path):
     assert last.unit > 3
     bar = window.source_view.verticalScrollBar()
     assert bar.value() == 0
-    window.follow(QUrl(f"#u{last.unit}"), "summary")
+    window.follow(QUrl(f"#l{last.id}"), "summary")
     assert bar.value() > 0
     window.resize(700, 700)                                             # narrow: tabs
     QApplication.processEvents()
@@ -193,21 +193,25 @@ def test_copy_and_export_the_shown_summary(window, tmp_path):
     out = tmp_path / "out"
     out.mkdir()
     (out / "Summary.docx").write_bytes(b"keep me")
-    final = window.export_to(out / "Summary.docx")
-    assert final.name == "Summary (2).docx" and (out / "Summary.docx").read_bytes() == b"keep me"
-    assert "a number was added" in window.notice.text()
+    window.export_to(out / "Summary.docx")
+    assert window.export_job and not window.export_button.isEnabled() and window.cancel_button.isVisible()
+    wait(lambda: window.export_job is None)
+    assert sorted(p.name for p in out.iterdir()) == ["Summary (2).docx", "Summary.docx"]
+    assert (out / "Summary.docx").read_bytes() == b"keep me"
+    assert "a number was added" in window.notice.text() and not window.cancel_button.isVisible()
 
 
 def test_the_tab_order_follows_the_screen(window):
     order, w = [], window.open_button
     w.setFocus()
-    for _ in range(8):
+    for _ in range(12):
         order.append(w)
         w = w.nextInFocusChain()
         while not (w.focusPolicy() & 0x1) or not w.isVisibleTo(window):   # Qt.TabFocus
             w = w.nextInFocusChain()
-    assert order[:7] == [window.open_button, window.paste_button, window.source_view, window.copy_button,
-                         window.export_button, window.level, window.summarize_button]
+    assert order[:11] == [window.open_button, window.paste_button, window.help_button, window.source_copy,
+                          window.source_export, window.find_field, window.source_view, window.copy_button,
+                          window.export_button, window.level, window.summarize_button]
 
 
 def test_switching_the_theme_rebuilds_the_look_in_place_and_keeps_the_scroll_position(window):
@@ -233,3 +237,94 @@ def test_an_unknown_format_and_an_unreadable_file_are_said_plainly(window, tmp_p
     bad.write_bytes(b"%PDF-1.4 not really a pdf")
     read_in(window, bad)
     assert window.source_status.text() == "Couldn't open broken.pdf: corrupt or unreadable PDF."
+
+
+# -- M3 and the audit's UX proposals the owner took on 2026-10-20 (UX1, UX4; H7) -------------------------------------
+def test_a_summary_link_selects_that_line_in_the_source_and_back_returns(window, tmp_path):
+    window.resize(1400, 700)
+    window.paste_text("Repeated invented sentence here.\n\nOther words first. Repeated invented sentence here. More.")
+    summarize_in(window, "comprehensive")
+    second = next(l for l in window.summary.lines if l.unit == 2 and l.text.startswith("Other"))
+    window.follow(QUrl(f"#l{second.id}"), "summary")
+    cursor = window.source_view.textCursor()
+    assert cursor.selectedText() == second.text and window.back_button.isVisible()
+    first = window.summary.lines[0]
+    window.follow(QUrl(f"#l{first.id}"), "summary")
+    assert window.source_view.textCursor().selectionStart() < cursor.selectionStart()   # its own occurrence
+    window.back_button.click()
+    assert not window.back_button.isVisible() and window.summary_view.hasFocus()
+
+
+def test_find_in_the_source_goes_round_and_says_when_there_is_no_match(window):
+    window.paste_text("Alpha invented word.\n\nBeta invented word.")
+    window.find_field.setText("invented")
+    assert window.find_next()
+    first = window.source_view.textCursor().selectionStart()
+    assert window.find_next() and window.source_view.textCursor().selectionStart() > first
+    assert window.find_next() and window.source_view.textCursor().selectionStart() == first   # wrapped
+    window.find_field.setText("absent quokka")
+    assert not window.find_next() and window.source_status.text() == "No match in the source."
+
+
+def test_text_zoom_scales_both_panes_and_the_reading_column(window):
+    window.paste_text("Invented words to zoom.")
+    column = window.source_view.column
+    window.set_zoom(1)
+    window.set_zoom(1)
+    assert window.source_view.zoom == window.summary_view.zoom == 1.2
+    assert window.source_view.column == round(window.source_view.base_column * 1.2) > column
+    window.set_zoom(0)
+    assert window.source_view.zoom == 1.0 and window.source_view.column == column
+
+
+def test_the_readable_text_can_be_copied_and_exported(window, tmp_path):
+    read_in(window, make_docx(tmp_path / "a.docx"))
+    window.source_copy.click()
+    copied = QApplication.clipboard().text()
+    assert copied.startswith("Readable text") and all(w in copied.split() for w in doc_words(window.blocks))
+    out = tmp_path / "out"
+    out.mkdir()
+    window.export_to(out / "Text.pdf", "source")
+    wait(lambda: window.export_job is None)
+    assert [p.name for p in out.iterdir()] == ["Text.pdf"] and "Exported as Text.pdf" in window.source_status.text()
+
+
+def test_cancel_stops_the_work_and_keeps_what_is_shown(window, tmp_path):
+    read_in(window, make_text_pdf(tmp_path / "t.pdf", pages=2))
+    summarize_in(window, "key")
+    shown = window.summary_view.toPlainText()
+    window.start_summary()
+    assert window.cancel_button.isVisible()
+    window.cancel_button.click()
+    assert window.sum_job is None and window.summary_state == "idle" and not window.cancel_button.isVisible()
+    assert window.summary_view.toPlainText() == shown and "last summary is still shown" in window.notice.text()
+    out = tmp_path / "out"
+    out.mkdir()
+    window.export_to(out / "S.pdf")
+    window.cancel_work()
+    assert list(out.iterdir()) == [] and "Nothing was saved" in window.notice.text()
+
+
+def test_a_failed_export_says_so_and_saves_nothing(window, tmp_path):
+    window.paste_text("Invented words for a failing export.")
+    summarize_in(window, "key")
+    window.exporting = (tmp_path / "S.pdf", "summary")
+    window._export_done(("failed", "ExportError"))
+    assert window.notice.text() == "Couldn't export: the new file did not pass its check. Nothing was saved."
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_help_works_offline_and_says_what_is_kept(window, monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+    shown = []
+    monkeypatch.setattr(QMessageBox, "exec", lambda box: shown.append(box.text()))
+    window.help_button.click()
+    assert "no network" in shown[0] and "Pasted text is kept in memory only" in shown[0] and "AGPL" in shown[0]
+    assert "http" not in shown[0]
+
+
+def test_an_empty_summary_says_why(window):
+    window.paste_text(" ".join(["word"] * 199) + " end.")
+    summarize_in(window, "brief")
+    assert "No whole line fits this level" in window.summary_view.toPlainText()
+    assert window.notice.text() == "Brief: no lines. The summary says why."

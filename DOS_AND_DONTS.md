@@ -13,13 +13,14 @@ authoritative decision record or grant permission to start another milestone.
 - **Read the contents, not the file name.** A file name is never evidence of what a document says.
 - **Keep OCR text marked as OCR.** It is less reliable than native text: say where it was used, and say what
   couldn't be read.
-- **Exports are new files.** Never write into an existing file. Write each export to a temporary file next to its
-  destination, check it (it opens, its text is there, its hash is recorded), then save it under its final name
-  without any overwrite path. A name already taken gets a suffix.
+- **Exports are new files.** Never write into an existing file. Write each export to a temporary file in the
+  system's temporary folder (never beside the destination or an original; owner, 2026-10-20), check it (it opens,
+  its text is there, its hash is recorded), then save it under its final name by exclusive creation, without any
+  overwrite path, and read it back. A name already taken gets a suffix.
 - **Failed exports must not look complete.** Publication and cleanup must cover unsupported hard links,
   collisions and partial write/close failures (H6), not only errors while building the temporary file.
-  Clean only artifacts owned by that export; preserve all pre-existing files. The user-chosen destination
-  versus source-folder prohibition remains an owner question (Q3), not an implicit exception.
+  Clean only artifacts owned by that export; preserve all pre-existing files. Q3 (owner, 2026-10-20): the user
+  may choose the source document's folder for a new export; nothing incidental is ever created there.
 
 ## Privacy
 

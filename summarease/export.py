@@ -1,6 +1,7 @@
 """Export (record C6, C14): a summary as a new PDF with real, searchable text (PyMuPDF) or a new Word file (the
-standard library). Never written over anything: each export goes to a temporary file in the chosen folder, is read
-back and checked, then saved under a name that is free (a taken name gets " (2)", " (3)", ...)."""
+standard library). Never written over anything: each export is made in memory, written to the system's temporary
+folder, read back and checked, then saved by exclusive creation under a name that is free (a taken name gets " (2)",
+" (3)", ...). The same writers export the readable text (present.source_paragraphs)."""
 import hashlib
 import io
 import os
@@ -20,7 +21,8 @@ class ExportError(Exception):
 # -- Word -----------------------------------------------------------------------------------------------------
 _W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
 _CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")    # not allowed in XML; never part of a word
-_STYLES = {"title": "Title", "section": "Heading2", "note": "Note", "gap": "Gap", "item": "ListParagraph"}
+_STYLES = {"title": "Title", "section": "Heading2", "note": "Note", "gap": "Gap", "item": "ListParagraph",
+           "body": "Normal", "label": "Label"}
 
 
 def _style(sid, name, size, bold=False, italic=False, colour=None, before=0, after=120):
@@ -38,11 +40,13 @@ def docx_bytes(paras):
         f'{xml_escape(_CONTROL.sub("", text))}</w:t></w:r></w:p>' for s, text in paras)
     styles = (f'<w:styles {_W}><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="{tk.FONT}" w:hAnsi="{tk.FONT}" '
               f'w:cs="{tk.FONT}"/><w:sz w:val="22"/></w:rPr></w:rPrDefault></w:docDefaults>'
-              '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style>'
+              '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/>'
+              '<w:pPr><w:spacing w:after="120"/></w:pPr></w:style>'
               + _style("Title", "Title", 20, bold=True, after=120)
               + _style("Heading2", "heading 2", 13, bold=True, before=240, after=80)
               + _style("Note", "Note", 9, colour=t["secondary"], after=160)
               + _style("Gap", "Gap", 9, colour=t["amber"], after=60)
+              + _style("Label", "Label", 9, bold=True, colour=t["secondary"], before=240, after=80)
               + _style("ListParagraph", "List Paragraph", 11, after=80) + "</w:styles>")
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
@@ -75,7 +79,8 @@ def docx_bytes(paras):
 # style: (size in points, bold, colour role, space before, space after). Text is placed with PyMuPDF's TextWriter,
 # which does not form ligatures: an HTML layout turned "find" into "ﬁnd", and the PDF could not be searched for it.
 PDF_STYLES = {"title": (20, True, "text", 0, 6), "section": (13, True, "text", 12, 4), "note": (9, False, "secondary", 0, 10),
-              "gap": (9, False, "amber", 0, 3), "item": (11, False, "text", 0, 5)}
+              "gap": (9, False, "amber", 0, 3), "item": (11, False, "text", 0, 5), "body": (11, False, "text", 0, 6),
+              "label": (9, True, "secondary", 12, 4)}
 PDF_MARGIN = 56
 PDF_LEADING = 1.35
 
@@ -167,38 +172,56 @@ def free_name(path):
     return candidate
 
 
-def save(paras, path):
-    """Write paras to a new file at path (".pdf" or ".docx"), or the next free name. Returns (final path, sha256).
-    Nothing that exists is ever overwritten."""
-    path = Path(path)
-    kind = path.suffix.lower()
+def prepare(paras, kind):
+    """The new file's bytes for kind (".pdf" or ".docx"), read back and checked. The check's temporary file goes
+    in the system's temporary folder, never beside the destination or an original (Q3, owner 2026-10-20)."""
     if kind not in (".pdf", ".docx"):
         raise ExportError("SummarEase exports PDF and Word (.docx) files")
     data = pdf_bytes(paras) if kind == ".pdf" else docx_bytes(paras)
-    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".summarease-", suffix=kind)
+    fd, tmp = tempfile.mkstemp(prefix="summarease-", suffix=kind)
     try:
         with os.fdopen(fd, "wb") as f:
             f.write(data)
         check(tmp, paras)
-        for _ in range(100):
-            final = free_name(path)
-            try:
-                os.link(tmp, final)         # fails if the name was taken meanwhile: never overwrites
-                break
-            except FileExistsError:
-                continue
-            except OSError:                 # no hard links here (some network or FAT drives): exclusive create
-                try:
-                    with open(final, "xb") as f:
-                        f.write(data)
-                    break
-                except FileExistsError:
-                    continue
-        else:
-            raise ExportError("no free file name was found")
     finally:
+        _remove(tmp)
+    return data
+
+
+def publish(data, path):
+    """Save checked bytes under path, or the next free name. Returns (final path, sha256). The name is taken by
+    exclusive creation, so nothing that exists is ever overwritten; if writing or the read-back fails, the file this
+    call created is removed, so a failed export never looks like a finished one (H6)."""
+    path = Path(path)
+    sha = hashlib.sha256(data).hexdigest()
+    for _ in range(100):
+        final = free_name(path)
         try:
-            os.unlink(tmp)
-        except OSError:
-            pass
-    return final, hashlib.sha256(data).hexdigest()
+            f = open(final, "xb")           # fails if the name was taken meanwhile
+        except FileExistsError:
+            continue
+        try:
+            with f:
+                f.write(data)
+                f.flush()
+                os.fsync(f.fileno())
+            if hashlib.sha256(final.read_bytes()).hexdigest() != sha:
+                raise ExportError("the saved file did not match what was checked")
+        except BaseException:
+            _remove(final)
+            raise
+        return final, sha
+    raise ExportError("no free file name was found")
+
+
+def save(paras, path):
+    """Write paras to a new file at path (".pdf" or ".docx"), or the next free name. Returns (final path, sha256)."""
+    path = Path(path)
+    return publish(prepare(paras, path.suffix.lower()), path)
+
+
+def _remove(path):
+    try:
+        os.unlink(path)
+    except OSError:
+        pass

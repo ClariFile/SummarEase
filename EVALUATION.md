@@ -5,10 +5,12 @@ command with recorded inputs and versions. Unit-test counts, synthetic diagnosti
 labelled separately. The counts describe the owner's development documents; they are not accuracy estimates,
 and a score is never a probability.
 
-**Implementation status, 2026-10-20:** the command implements automatic checks only. The review found weaknesses
-in those checks and their execution (H1–H5/H8 in [the handoff](docs/FROM_CLASSIFILE.md)). Treat the checks below as
-acceptance requirements, not guarantees already established by a successful command. The earlier development
-run has no available saved report; no complete result is claimed.
+**Implementation status, 2026-10-20 (later):** the command implements the automatic checks only, now with the
+H3–H5 corrections: whole-unit traceability, budgets calculated from the readable text, visible-output comparison
+(pane, references, marks, notes, Copy/Export text) over a rebuild and a fresh read, reader-side gap comparison,
+explicit empty outcomes, protected-folder refusal before anything is opened, a worker with a deadline per
+document, nonzero exits, duplicate counting, and a saved local report. H8 (partial OCR failure inside one unit)
+cannot be seen until the reader records it. Results are in `docs/STATUS.md`.
 
 ## The documents
 
@@ -83,10 +85,13 @@ Each summary, at each level being tested, is scored by the owner on four points,
 
 **Available now:** `python -m tools.evaluate` runs the baseline and the relevant alternative (structure for slides,
 ranking for prose) at all four levels. It reports automatic document pass counts per format, with PDF slides and
-prose separated, and descriptive ranges. `--set` selects development folders; `--no-ocr` requests OCR off.
-It does not write blind-scoring summaries, consume references, or support `--final`.
+prose separated, and descriptive ranges, plus empty summaries by method, format, level and reason. `--set`
+selects development folders; `--no-ocr` requests OCR off. Exit codes: 0 every check passed, 1 a check failed,
+2 refused or nothing to check, 3 some documents could not be checked. A copy of the report goes to
+`data\reports\` (not tracked), marked incomplete until the run ends. It does not write blind-scoring summaries,
+consume references, or support `--final`.
 
-**Required corrections before trusting the gate (H3–H5):**
+**Corrections made on 2026-10-20 (H3–H5), kept here as the requirements they meet:**
 
 - Check input locations before opening or hashing. A missing/empty input set is an explicit unsuccessful outcome,
   not a successful zero-document report.

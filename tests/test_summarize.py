@@ -36,8 +36,8 @@ def test_every_level_passes_the_automatic_checks(tmp_path, make, name, method):
     for lv, s in levels.items():
         assert s.lines, lv
         assert checks.traceable(s, texts) == []
-        assert checks.within_budget(s) == []
-        assert checks.gaps_disclosed(s, blocks) == []
+        assert checks.within_budget(s, blocks) == [] and checks.explained(s) == []
+        assert checks.gaps_disclosed(s, blocks, record) == []
         assert checks.same(s, build(src, lv, method))                          # same input, same output
     assert checks.nested(levels) == []
     renamed = tmp_path / ("other name" + path.suffix)
@@ -55,7 +55,7 @@ def test_budgets_follow_the_record():
 def test_a_long_document_keeps_every_budget_and_comprehensive_is_never_a_copy(tmp_path):
     record, blocks, src = load(make_text_pdf(tmp_path / "t.pdf", pages=30))
     levels = {lv: build(src, lv, "ranking") for lv in LEVELS}
-    assert all(checks.within_budget(s) == [] for s in levels.values())
+    assert all(checks.within_budget(s, blocks) == [] for s in levels.values())
     assert levels["comprehensive"].words <= 0.4 * levels["comprehensive"].total
     assert len(levels["brief"].lines) <= 3 and len(levels["key"].lines) <= 12
     detailed = levels["detailed"]
@@ -129,3 +129,75 @@ def test_pasted_text_is_summarized_and_linked_to_its_paragraphs():
     s = build(source_from_text(blocks), "key", "baseline")
     assert checks.traceable(s, checks.unit_texts(blocks=blocks)) == []
     assert s.unit == "paragraph" and s.lines[0].unit == 1
+
+
+# -- audit regressions (docs/FROM_CLASSIFILE.md, H1-H3; owner's answers to Q1 and Q2, 2026-10-20) -------------------
+def many_headings(n=40, heading="Invented heading with seven plain words"):
+    return [b for i in range(n) for b in (Block("heading", f"{heading} {i}", unit=i + 1),
+                                          Block("lines", "Short factual sentence.", unit=i + 1))]
+
+
+def test_headings_count_against_the_budget_and_sections_that_do_not_fit_are_named():
+    blocks = many_headings()
+    src = Source(blocks, "page", False)
+    levels = {lv: build(src, lv, "baseline") for lv in LEVELS}
+    for lv, s in levels.items():
+        assert checks.within_budget(s, blocks) == [], lv
+    assert checks.nested(levels) == []
+    detailed, full = levels["detailed"], levels["comprehensive"]
+    assert detailed.omitted and full.budget == max(budget("comprehensive", full.total), budget("detailed", full.total))
+    shown = {s.heading.unit for s, _ in detailed.sections}
+    assert {u for _, u in detailed.omitted} == set(range(1, 41)) - shown        # every section shown or named
+    from summarease import present
+    note = next(n for n in present.notes(detailed) if "didn't fit" in n)
+    assert note.startswith(f"{len(detailed.omitted)} sections didn't fit this level's length")
+
+
+def test_hidden_slide_headings_and_long_headings_never_exceed_comprehensive():
+    blocks = many_headings(30, "An invented and rather long heading that goes on for many more words than usual")
+    src = Source(blocks, "slide", True, hidden=frozenset(range(1, 31, 2)))
+    s = build(src, "comprehensive", "structure")
+    assert checks.within_budget(s, blocks) == []
+
+
+def test_a_table_only_document_says_why_its_summary_is_empty():
+    s = build(Source([Block("table", rows=[["Invented fact", "Meaningful value"]], unit=1)], "block", False),
+              "detailed", "baseline")
+    assert not s.lines and s.empty == "unusable" and s.tables == 1 and checks.explained(s) == []
+
+
+def test_a_sentence_longer_than_the_budget_is_never_cut_and_the_reason_is_given():
+    text = " ".join(["word"] * 199) + " end."
+    s = build(source_from_text(from_text(text)), "brief", "baseline")
+    assert not s.lines and s.empty == "none_fit" and checks.explained(s) == []
+
+
+def test_an_empty_document_and_an_ocr_only_document_get_an_accurate_outcome():
+    assert build(Source([], "page", False), "key", "baseline").empty == "no_text"
+    ocr_only = build(Source([Block("ocr", "Picture words read by OCR here", unit=1)], "page", False), "brief", "baseline")
+    assert ocr_only.lines and ocr_only.lines[0].kind == "ocr" and not ocr_only.empty
+
+
+def test_a_short_document_is_shown_whole_and_says_so():
+    s = build(source_from_text(from_text("Four invented words here.")), "comprehensive", "baseline")
+    assert [l.text for l in s.lines] == ["Four invented words here."] and s.whole
+    long = build(source_from_text(from_text(" ".join(f"Sentence {i} is invented." for i in range(400)))),
+                 "comprehensive", "baseline")
+    assert not long.whole
+
+
+def test_the_checks_catch_deliberate_mutations():
+    from dataclasses import replace
+
+    blocks = from_text("Do not publish this. Keep the second sentence too.")
+    texts = checks.unit_texts(blocks=blocks)
+    s = build(source_from_text(blocks), "comprehensive", "baseline")
+    assert checks.traceable(s, texts) == []
+    mutate = lambda **kw: replace(s, sections=[(sec, [replace(ls[0], **kw)] + ls[1:]) for sec, ls in s.sections])
+    assert checks.traceable(mutate(text="publish this."), texts)                       # a negation dropped
+    assert checks.traceable(mutate(text="Do not publish"), texts)                      # a boundary moved
+    assert checks.traceable(mutate(unit=2), texts)                                     # the wrong location
+    assert checks.within_budget(replace(s, budget=999, sections=[(sec, ls * 40) for sec, ls in s.sections]), blocks)
+    assert not checks.same(s, replace(s, labels=["Another label"]))                    # a reference label
+    assert not checks.same(s, mutate(kind="ocr"))                                      # a marker
+    assert not checks.same(s, replace(s, whole=not s.whole))                           # a note

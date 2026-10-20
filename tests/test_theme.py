@@ -31,8 +31,9 @@ def pairs(t):
     for surface in ("window", "base", "notice", "hover"):
         out += [(f"secondary text on {surface}", t["secondary"], t[surface], TEXT),
                 (f"amber text on {surface}", t["amber"], t[surface], TEXT),
-                (f"red text on {surface}", t["red"], t[surface], TEXT),
-                (f"links on {surface}", t["link"], t[surface], TEXT)]
+                (f"red text on {surface}", t["red"], t[surface], TEXT)]
+        if surface != "notice":     # the notice is only behind OCR text, which holds no link
+            out += [(f"links on {surface}", t["link"], t[surface], TEXT)]
     out += [("primary button text", t["on_primary"], t["primary"], TEXT),
             ("primary button text, hovered", t["on_primary"], t["primary_hover"], TEXT)]
     for surface in ("window", "base"):
@@ -69,3 +70,30 @@ def test_the_themes_are_complete_violet_is_the_accent_and_large_surfaces_are_gre
                 assert re.search(r"focus|#primary|tab:selected", selector), selector.strip()   # the selection bar
             if ":hover" in selector and "#primary" not in selector:
                 assert t["accent"] not in body and t["selection"] not in body, selector.strip()
+
+
+# The suite's shared values, copied from ClassiFile's classifile/app/tokens.py at 1.0.0-rc.7 (commit 454e720; it
+# has no tag yet: retake this table at ClassiFile's v1 tag). The two apps share greys, amber, red, font, text sizes,
+# spacing and radii; each keeps its own accent (DOS_AND_DONTS.md; docs/FROM_CLASSIFILE.md, section 2).
+SUITE_COLOURS = {
+    "light": {"window": "#F6F7F9", "base": "#FFFFFF", "raised": "#FFFFFF", "text": "#111827", "secondary": "#4B5563",
+              "disabled": "#6B7280", "divider": "#D9DEE5", "control": "#82868C", "hover": "#EAEEF2",
+              "pressed": "#E2E6EB", "notice": "#E8EDF2", "disabled_fill": "#E5E7EB", "amber": "#AA4F09",
+              "red": "#B91C1C", "on_primary": "#FFFFFF"},
+    "dark": {"window": "#1C1E21", "base": "#212428", "raised": "#272A2F", "text": "#E6E8EB", "secondary": "#A0A6AD",
+             "disabled": "#7A8087", "divider": "#33373D", "control": "#777A7F", "hover": "#2A2E33",
+             "pressed": "#33373D", "notice": "#272A2F", "disabled_fill": "#2E3238", "amber": "#D29922",
+             "red": "#EA756F", "on_primary": "#FFFFFF"},
+}
+SUITE_SIZES = {"FONT": "Segoe UI", "TEXT_CAPTION": 12, "TEXT_SECONDARY": 13, "TEXT_BODY": 14, "TEXT_HEADING": 16,
+               "TEXT_TITLE": 22, "WEIGHT_STRONG": 600, "SPACED": 1, "PAD": 24, "GROUP": 16, "RELATED": 8, "TIGHT": 4,
+               "HAIR": 1, "RADIUS_CONTROL": 6, "RADIUS_PANEL": 8, "CONTROL_TEXT": 20}
+
+
+def test_the_shared_suite_values_equal_classifiles():
+    from summarease import tokens
+
+    for name, shared in SUITE_COLOURS.items():
+        assert {k: THEMES[name][k] for k in shared} == shared, name
+    assert {k: getattr(tokens, k) for k in SUITE_SIZES} == SUITE_SIZES
+    assert all(not {"green"} & set(t) for t in THEMES.values())          # the suite's colours, nothing more

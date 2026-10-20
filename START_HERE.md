@@ -27,10 +27,9 @@ them as readable text you can copy or export.
 
 ## Status
 
-M0 and M1 are built; the UI redesign and four-level M2 implementation exist. M2 acceptance is still pending:
-the audit found gaps despite 84 passing tests, the previous development evaluation has no available saved report,
-and quality comparison waits for the owner's independent references. M3's remaining work is readable-text
-Copy/Export and the owner's review, only on the owner's go-ahead. M4 still waits for ClassiFile v1.
+M0 and M1 are done. M2 (four levels) and M3 (readable-text Copy/Export, Cancel, find, zoom, exact source
+selection, Help/About) are built, with the audit's fixes H1–H7 (2026-10-20). Waiting: the owner's review of M3,
+the owner's record update for Q1–Q3, the reference key points for M2's rubric comparison, and an upstream reader
+fix for H8. M4 still waits for ClassiFile v1. See `docs/STATUS.md`.
 
-The current work strengthens the existing handoffs. It neither rebuilds the app nor promotes proposals to
-requirements. Do not edit the authoritative decision record to resolve a conflict; present it to the owner.
+Do not edit the authoritative decision record to resolve a conflict; present it to the owner.

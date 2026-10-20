@@ -12,14 +12,10 @@ ENDS = re.compile(r"[.!?][\"')\]”’]*$")     # how a sentence ends (summarize
 
 def unit_texts(record=None, blocks=None):
     """{unit: {kind: text}} that a summary line may come from: the reader's own text for a document (not the
-    view's), or the pasted paragraphs. Line breaks are kept: they mark where a line starts and ends. "layout" is the
-    reader's own layout lines, one per line: two runs printed side by side on one row are one line of the text but
-    two lines of the layout."""
+    view's), or the pasted paragraphs. Line breaks are kept: they mark where a line starts and ends."""
     if record is not None:
-        return {u.index: {"text": u.text or "", "ocr": u.ocr_text or "", "note": u.notes or "",
-                          "layout": "\n".join(l["text"] for b in (u.layout or {}).get("blocks", []) for l in b["lines"])}
-                for u in record.units}
-    return {b.unit: {"text": b.text, "ocr": "", "note": "", "layout": ""} for b in blocks if b.unit is not None}
+        return {u.index: {"text": u.text or "", "ocr": u.ocr_text or "", "note": u.notes or ""} for u in record.units}
+    return {b.unit: {"text": b.text, "ocr": "", "note": ""} for b in blocks if b.unit is not None}
 
 
 def whole_unit(text, source):
@@ -29,9 +25,10 @@ def whole_unit(text, source):
     words = text.split()
     if not words:
         return False
-    for m in re.finditer(r"(?<!\S)" + r"\s+".join(map(re.escape, words)) + r"(?!\S)", source):
+    # every occurrence, overlapping ones too: a line can start inside an earlier, longer match
+    for m in re.finditer(r"(?<!\S)(?=(" + r"\s+".join(map(re.escape, words)) + r")(?!\S))", source):
         before = source[:m.start()].rstrip(" \t")
-        after = source[m.end():].lstrip(" \t")
+        after = source[m.start() + len(m[1]):].lstrip(" \t")
         starts = not before or before.endswith("\n") or ENDS.search(before)
         ends = not after or after.startswith("\n") or ENDS.search(words[-1])
         if starts and ends:
@@ -45,9 +42,7 @@ def traceable(summary, texts):
     problems = []
     for i, l in enumerate(summary.lines, 1):
         where = {"ocr": "ocr", "note": "note"}.get(l.kind, "text")
-        found = l.unit in texts and (whole_unit(l.text, texts[l.unit][where])
-                                     or where == "text" and whole_unit(l.text, texts[l.unit]["layout"]))
-        if not found:
+        if l.unit not in texts or not whole_unit(l.text, texts[l.unit][where]):
             problems.append(f"{summary.level} line {i}: not a whole line where it links (unit {l.unit})")
     return problems
 

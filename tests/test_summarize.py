@@ -203,13 +203,6 @@ def test_the_checks_catch_deliberate_mutations():
     assert not checks.same(s, replace(s, whole=not s.whole))                           # a note
 
 
-def test_a_layout_line_beside_another_on_one_row_is_still_a_whole_line():
-    from types import SimpleNamespace as NS
-
-    unit = NS(index=1, text="Title\nLeft run of words Right run beside it", ocr_text=None, notes=None,
-              layout={"blocks": [{"lines": [{"text": "Title"}, {"text": "Left run of words"},
-                                            {"text": "Right run beside it"}]}]})
-    texts = checks.unit_texts(NS(units=[unit]))
-    assert checks.whole_unit("Left run of words", texts[1]["layout"])
-    assert not checks.whole_unit("Left run of words", texts[1]["text"])
-    assert not checks.whole_unit("run of words", texts[1]["layout"])
+def test_a_line_that_repeats_the_start_of_the_line_before_is_still_found():
+    source = "Alpha beta gamma\nAlpha beta gamma delta epsilon zeta\nNext"
+    assert checks.whole_unit("Alpha beta gamma delta epsilon zeta", source)

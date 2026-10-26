@@ -6,8 +6,8 @@
 
 Still waiting at the M2/M3 stop points below; M4 stays at its gate. Done from the handoff:
 - **H8, partial OCR failures, fixed upstream and synced:** ClassiFile's reader keeps each OCR'd picture's outcome
-  (extraction record 7, `ocr_pictures`, a `partial` status, `unread_gap()`), tagged `reader-v7` in ClassiFile (the
-  tag is local there until the owner pushes it). The copy here was taken at that tag; `SOURCE.md` lists the new
+  (extraction record 7, `ocr_pictures`, a `partial` status, `unread_gap()`), tagged `reader-v7` in ClassiFile (pushed
+  2026-10-26). The copy here was taken at that tag; `SOURCE.md` lists the new
   hashes and `tests/test_reader_copy.py` checks them.
 - **Disclosure everywhere:** a unit that read one picture and not another keeps the text read and says "1 of its 2
   pictures couldn't be read (…)" in the gap details of every level, Copy, the view and both exports

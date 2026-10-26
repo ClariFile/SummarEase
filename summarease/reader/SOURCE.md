@@ -3,7 +3,7 @@
 Copied unchanged from ClassiFile's `classifile/reader/` (READER.md, option (a)).
 
 - Source: ClassiFile tag **`reader-v7`** (commit `bd9214396b62a810e91aff80ad004fcf33fdccfb`), taken on 2026-10-26.
-  The tag is local in ClassiFile until the owner pushes it. The previous copy was `reader-v6`
+  The tag was pushed on 2026-10-26. The previous copy was `reader-v6`
   (commit `015b4160c8f671cf2575ecb488c73ce98e96098b`, 2026-10-14).
 - Record version: 7. Format reader versions: pdf-6, docx-7, pptx-7, odt-6.
 - What changed since `reader-v6`: each OCR'd picture's outcome is kept (`UnitRecord.ocr_pictures`: read, no_text,
@@ -19,7 +19,7 @@ and hashes.
 ## The files at `reader-v7`
 
 SHA-256 of each file as stored at the tag (line breaks as `
-`; a Windows checkout's `
+`; a Windows checkout's `
 ` is read as `
 `
 before hashing). Checked on 2026-10-26: the copy here matches all six.

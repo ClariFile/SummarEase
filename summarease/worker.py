@@ -1,9 +1,12 @@
 """Heavy work runs in a worker process with a time limit (DOS_AND_DONTS.md): a crash, a hang or a timeout is an
 operational failure, reported plainly, never a result. The workers only read; the one file a worker writes is an
 export's temporary check copy, in the system's temporary folder (export.prepare). Waiting on a worker is always
-bounded: a worker that sends its result and then hangs is stopped, so the window never waits for it."""
+bounded: a worker that sends its result and then hangs is stopped, so the window never waits for it. The whole
+operation is bounded too, not only the wait for an answer: a watchdog ends the process at its time limit whatever
+it is doing, so a result that stalls half sent, or a job nobody polls any more, cannot outlive it."""
 import hashlib
 import multiprocessing as mp
+import threading
 import time
 
 from .reader import ReadResult, read_document
@@ -67,6 +70,11 @@ class Job:
         child.close()
         self._deadline = time.monotonic() + time_limit
         self.started = time.monotonic()
+        # Ends the process at the limit (plus its exit allowance) even while recv() waits for the rest of a
+        # result: the pipe then closes, and poll() reports a stopped worker instead of waiting on.
+        self._watchdog = threading.Timer(time_limit + JOIN_LIMIT, self._proc.kill)
+        self._watchdog.daemon = True
+        self._watchdog.start()
 
     def poll(self):
         try:
@@ -88,6 +96,7 @@ class Job:
         self._finish()
 
     def _finish(self):
+        self._watchdog.cancel()
         self._proc.join(JOIN_LIMIT)
         if self._proc.is_alive():
             self._proc.kill()

@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from html import escape
 
 from . import tokens as tk
+from .reader.common import UNREAD_OUTCOMES
 
 DOC_KINDS = ("title", "heading", "paragraph", "lines", "list", "table", "ocr", "notes")
 OWN_KINDS = ("label", "note", "gap", "gaps")
@@ -33,7 +34,27 @@ GAP_REASONS = {
     "unavailable": "OCR is not installed",
     "deferred": "OCR ran out of time",
     "disabled": "OCR is switched off",
+    "partial": "OCR read only some of the pictures",
 }
+# Why one picture of a unit was left unread (record 7, UnitRecord.ocr_pictures), when others were read.
+PICTURE_REASONS = {"render_failed": "it could not be opened", "engine_failed": "OCR failed on it",
+                   "not_attempted": "OCR ran out of time"}
+
+
+def gap_detail(u):
+    """What the gap details say about a unit not fully read, or None. A unit that read one picture and not another
+    (record 7) says how many were left unread and why; the text read from the others stays in the view."""
+    if not u.suspected_unread:
+        return None
+    pictures = getattr(u, "ocr_pictures", None) or []
+    unread = [p["outcome"] for p in pictures if p.get("outcome") in UNREAD_OUTCOMES]
+    if unread and len(unread) < len(pictures):
+        why = ", ".join(sorted({PICTURE_REASONS[o] for o in unread}))
+        return f"{len(unread)} of its {len(pictures)} pictures couldn't be read ({why})"
+    if unread or u.ocr_status in GAP_REASONS:
+        reason = GAP_REASONS.get(u.ocr_status) or PICTURE_REASONS[unread[0]]
+        return f"a picture couldn't be read ({reason})"
+    return None
 DETAILS = "#gap-details"
 
 
@@ -78,10 +99,11 @@ def from_record(record, bold=None):
         mine += _native(record, u, body, (bold or {}).get(u.index))
         if u.ocr_text:
             mine += [Block("note", OCR_CAPTION), Block("ocr", u.ocr_text)]
-        if u.suspected_unread and u.ocr_status in GAP_REASONS:
+        detail = gap_detail(u)
+        if detail:
             mine.append(Block("gap", GAP_NOTE))     # one short note per unit at most
             where = f"{name} {u.index}" if name else f"Place {len(details) + 1}"
-            details.append((u.index, f"{where}: a picture couldn't be read ({GAP_REASONS[u.ocr_status]})."))
+            details.append((u.index, f"{where}: {detail}."))
         if u.notes:
             mine += [Block("note", "Speaker notes"), Block("notes", u.notes)]
         for b in mine:

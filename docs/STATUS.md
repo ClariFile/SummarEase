@@ -1,6 +1,26 @@
 # SummarEase status
 
-2026-10-20 · decision record 0.5
+2026-10-26 · decision record 0.5
+
+## The second ClassiFile handoff (2026-10-26; [FROM_CLASSIFILE_PHASE2.md](FROM_CLASSIFILE_PHASE2.md))
+
+Still waiting at the M2/M3 stop points below; M4 stays at its gate. Done from the handoff:
+- **H8, partial OCR failures, fixed upstream and synced:** ClassiFile's reader keeps each OCR'd picture's outcome
+  (extraction record 7, `ocr_pictures`, a `partial` status, `unread_gap()`), tagged `reader-v7` in ClassiFile (the
+  tag is local there until the owner pushes it). The copy here was taken at that tag; `SOURCE.md` lists the new
+  hashes and `tests/test_reader_copy.py` checks them.
+- **Disclosure everywhere:** a unit that read one picture and not another keeps the text read and says "1 of its 2
+  pictures couldn't be read (…)" in the gap details of every level, Copy, the view and both exports
+  (`readable.gap_detail`). `checks.gaps_disclosed` reads the reader's own `unread_gap`, not the view's notes, so a
+  disclosure the view loses is still caught (`tests/test_partial_ocr.py`). A fully read unit has no gap.
+- **The whole worker job is bounded:** a watchdog ends the process at its time limit whatever it is doing, also
+  when nothing polls it (`worker.Job`).
+- **Stale results and source identity:** checked, no fault found: A's summary never lands on B, Copy and Export
+  stay off until B's own summary, and the same path with new bytes is read anew (`tests/test_app.py`).
+- **Generated context cases:** a repeated title, an "only if" qualification and a rejected alternative behave as
+  the handoff asks with the current method; kept as regression cases (`tests/test_summarize.py`), not as accuracy.
+- **Not done (the owner's part):** the independent reference key points and the blind method comparison; the M3
+  review and packaging. 120 tests pass.
 
 ## Current checkpoint: audit fixes and M3 built (2026-10-20), waiting at the M2/M3 stop points
 

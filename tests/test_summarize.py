@@ -206,3 +206,28 @@ def test_the_checks_catch_deliberate_mutations():
 def test_a_line_that_repeats_the_start_of_the_line_before_is_still_found():
     source = "Alpha beta gamma\nAlpha beta gamma delta epsilon zeta\nNext"
     assert checks.whole_unit("Alpha beta gamma delta epsilon zeta", source)
+
+
+def test_generated_context_cases_from_the_second_handoff():
+    """Diagnostic cases (second ClassiFile handoff), checked against the current method: a title repeated on every
+    page is taken once and the one conclusion is kept; a line with "only if" is taken whole or not at all; the
+    rejected alternative is never shown without the choice made. Generated text: no accuracy claim."""
+    from summarease.readable import from_text
+    from summarease.summarize import build, source_from_text
+
+    def lines(text, level):
+        s = build(source_from_text(from_text(text)), level, "baseline")
+        return [l.text for l in s.lines]
+
+    page = "Quarterly Network Review\n\nThe agenda covers routers, switches and links."
+    conclusion = "Conclusion: replace the core switch before March because it drops packets under load."
+    got = lines("\n\n".join([page] * 6 + [conclusion]), "key")
+    assert got.count("Quarterly Network Review") == 1 and conclusion in got
+    qualified = "Restoring is safe only if the database is stopped first; otherwise data is corrupted."
+    text = ("Backups run every night.\n\n" + qualified + "\n\nThe team chose option B. Option A was considered "
+            "first.\n\nLater, option A was rejected because it costs too much.")
+    for level in ("brief", "key"):
+        got = lines(text, level)
+        assert all(l in text.split("\n\n") for l in got)                  # whole source units only
+        assert not any("only if" in l and l != qualified for l in got)
+        assert not any("rejected" in l for l in got) or any("chose option B" in l for l in got)

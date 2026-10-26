@@ -1,4 +1,4 @@
-"""The copied reader equals ClassiFile's tag reader-v6: the files and hashes listed in summarease/reader/SOURCE.md."""
+"""The copied reader equals ClassiFile's tag reader-v7: the files and hashes listed in summarease/reader/SOURCE.md."""
 import hashlib
 import re
 from pathlib import Path
@@ -15,7 +15,7 @@ def test_source_table_lists_the_six_reader_files():
     assert sorted(expected_hashes()) == ["__init__.py", "common.py", "ocr.py", "odt.py", "ooxml.py", "pdf.py"]
 
 
-def test_reader_copy_matches_reader_v6():
+def test_reader_copy_matches_reader_v7():
     actual = {
         p.name: hashlib.sha256(p.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
         for p in READER.iterdir()

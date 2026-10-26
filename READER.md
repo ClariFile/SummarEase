@@ -5,7 +5,7 @@ SummarEase needs what ClassiFile's reader (`classifile/reader`) already does:
 - selective OCR, with junk lines dropped and counted;
 - source locations (page, slide, block);
 - layout (lines, blocks, positions, sizes), which ClassiFile keeps for SummarEase;
-- a versioned record (record version 6).
+- a versioned record (record version 7 since `reader-v7`).
 
 The reader is about 1,300 lines. It needs PyMuPDF, plus Tesseract for OCR. It imports nothing from the rest of
 ClassiFile, by rule and by test.
@@ -30,7 +30,7 @@ ClassiFile, by rule and by test.
 
 ## Taken in M0: (a)
 
-The copy is ClassiFile's tag `reader-v6`; `summarease/reader/SOURCE.md` lists the hash of each file.
+The copy is ClassiFile's tag `reader-v7` (first `reader-v6`); `summarease/reader/SOURCE.md` lists the hash of each file.
 `tests/test_reader_copy.py` checks the files and hashes. It was completed early in M0 on 2026-10-15 at the
 owner's request, rather than remaining M1's first task.
 
@@ -39,10 +39,10 @@ owner's request, rather than remaining M1's first task.
 - **PowerPoint bullet levels:** not retained in this copy. The owner accepted the limitation for now and added
   preservation of bullet levels to v1.1. It starts in ClassiFile's reader after ClassiFile v1, then comes back at
   a tag. Do not claim lower levels already distinguish sub-bullets.
-- **Partial OCR failure (H8):** `reader/ocr.py:run` reports `done` if any image in a unit yields usable text, even
-  if another image fails. It needs an upstream record that preserves partial failures. SummarEase cannot recover
-  missing per-image outcomes from the current status alone. Its view and evaluation sharing that status does
-  not establish complete disclosure.
+- **Partial OCR failure (H8): fixed upstream at `reader-v7` (2026-10-26).** The record keeps each picture's
+  outcome (`ocr_pictures`) and a `partial` status; `unread_gap()` is the reader's own answer. The view names the
+  unread pictures and `checks.gaps_disclosed` tests against the reader's outcomes, not the view's notes. Records
+  older than version 7 have no per-picture outcomes; their status alone decides.
 - **Unsupported reader content:** chart text in PPTX is not read (`reader/ooxml.py`); equation structure is
   flattened to text. These are extraction limits, not evidence that the source has no information.
 - **Summary exclusions are different:** the reader does extract table text, but SummarEase's summarizer skips

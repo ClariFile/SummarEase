@@ -79,3 +79,14 @@ def test_cancel_reaps_the_worker(tmp_path):
     job = Job(_hang, str(make_pdf(tmp_path / "a.pdf")))
     job.cancel()
     assert not job._proc.is_alive()
+
+
+def test_a_job_nobody_polls_is_still_ended_at_its_limit(tmp_path):
+    """The whole operation is bounded (second ClassiFile handoff): the watchdog ends a hung worker at its limit even
+    when nothing polls it, and so ends any receive that waits on it."""
+    job = Job(_hang, str(make_pdf(tmp_path / "a.pdf")), time_limit=0)
+    end = time.monotonic() + LIMIT
+    while job._proc.is_alive() and time.monotonic() < end:
+        time.sleep(0.05)
+    assert not job._proc.is_alive()
+    assert wait(job)[0] == "failed"

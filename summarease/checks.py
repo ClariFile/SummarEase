@@ -4,6 +4,7 @@ import re
 
 from . import present
 from . import tokens as tk
+from .reader import unread_gap
 from .readable import GAP_REASONS, OWN_KINDS
 from .summarize import BRIEF_LINES, BUDGETS, KEY_LINES, LEVELS, SECTION_LINES
 
@@ -99,11 +100,13 @@ def nested(summaries):
 
 def gaps_disclosed(summary, blocks, record=None):
     """Every unit not fully read is named in the summary's gap details: the units the readable text marks, and the
-    units the reader itself reports (so a disclosure lost in the view does not pass by agreement). A partial OCR
-    failure inside a unit the reader calls done cannot be seen here (READER.md, H8)."""
+    units the reader itself reports (so a disclosure lost in the view does not pass by agreement). The reader's
+    own answer (reader.unread_gap, from each picture's outcome since record 7) is read here, not the view's, so a
+    partial OCR failure (H8) the view lost is still caught."""
     marked = {b.unit for b in blocks if b.kind == "gap"}
     if record is not None:
-        marked |= {u.index for u in record.units if u.suspected_unread and u.ocr_status in GAP_REASONS}
+        marked |= {u.index for u in record.units if u.suspected_unread and (
+            u.ocr_status in GAP_REASONS or unread_gap(True, u.ocr_status, getattr(u, "ocr_pictures", None)))}
     told = {u for u, _ in summary.gaps}
     return [f"{summary.level}: {len(marked - told)} gap(s) not disclosed"] if marked - told else []
 

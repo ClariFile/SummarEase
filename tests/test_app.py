@@ -328,3 +328,24 @@ def test_an_empty_summary_says_why(window):
     summarize_in(window, "brief")
     assert "No whole line fits this level" in window.summary_view.toPlainText()
     assert window.notice.text() == "Brief: no lines. The summary says why."
+
+
+def test_a_summary_of_the_last_document_never_lands_on_the_next(window, tmp_path):
+    """Stale results (second ClassiFile handoff): A's summary is working when B arrives; A's answer is never shown,
+    Copy and Export stay off until B's own summary, and the same path with new bytes is read anew."""
+    a = make_text_pdf(tmp_path / "a.pdf", pages=2)
+    read_in(window, a)
+    window.start_summary()
+    assert window.sum_job is not None
+    window.paste_text("A pasted note about something else entirely.\n\nIt has two paragraphs.")
+    assert window.sum_job is None and window.summary is None and window.summary_state == "idle"
+    QTest.qWait(300)                                                    # A's job would have answered by now
+    assert window.summary is None and not window.copy_button.isEnabled() and not window.export_button.isEnabled()
+    summarize_in(window, "brief")
+    assert window.summary is not None and "pasted note" in window.summary_view.toPlainText().casefold()
+    read_in(window, a)                                                  # back to A: read again, no old summary
+    assert window.summary is None
+    first = window.blocks
+    make_text_pdf(tmp_path / "a.pdf", pages=3)                         # the same name, other bytes
+    read_in(window, tmp_path / "a.pdf")
+    assert window.blocks != first                                       # read anew, never reused by its path

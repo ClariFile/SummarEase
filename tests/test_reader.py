@@ -35,7 +35,7 @@ def test_reader_reads_each_format_without_changing_it(tmp_path, make, name, fmt,
     res = read_document(path)
     assert res.status == "ok", res.reason
     rec = res.record
-    assert rec.format == fmt and rec.record_version == RECORD_VERSION == 6
+    assert rec.format == fmt and rec.record_version == RECORD_VERSION == 7
     text = "\n".join(u.text for u in rec.units)
     assert text.strip()
     assert phrase in text
